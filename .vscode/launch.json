@@ -1,0 +1,88 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "MCP Server",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "servicenow_mcp.server",
+      "cwd": "${workspaceFolder}",
+      "envFile": "${workspaceFolder}/.env",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "MCP Client: List Tools",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/scripts/mcp_client.py",
+      "args": ["list"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "MCP Client: Search",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/scripts/mcp_client.py",
+      "args": [
+        "search",
+        "remote access",
+        "--limit",
+        "5",
+        "--language",
+        "en"
+      ],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "MCP Client: Get Article",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/scripts/mcp_client.py",
+      "args": ["article", "ARTICLE_SYS_ID"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "MCP Client: Get Attachment",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/scripts/mcp_client.py",
+      "args": [
+        "attachment",
+        "ARTICLE_SYS_ID",
+        "ATTACHMENT_SYS_ID",
+        "--output",
+        "${workspaceFolder}/attachment.bin"
+      ],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "Tests: MCP Tools",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "pytest",
+      "args": ["tests/test_tools.py", "-v", "-s"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "Tests: All",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "pytest",
+      "args": ["-v", "-s"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    }
+  ]
+}
