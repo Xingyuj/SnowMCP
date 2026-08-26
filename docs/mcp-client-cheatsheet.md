@@ -1,16 +1,39 @@
 # MCP Python Client Cheatsheet
 
+## Windows Git Bash: direct ServiceNow diagnostics
+
+The commands in this section run from Windows Git Bash and call ServiceNow directly without
+going through MCP. Use them to separate environment, DNS, proxy, TLS, OAuth, and ServiceNow API
+problems from MCP implementation problems. Do not share output containing access tokens, client
+IDs, or client secrets.
+
+### Quick Python/httpx connectivity check
+
+Use this after the `SERVICENOW_*` variables have already been loaded into the current shell. It
+makes an unauthenticated request to the OAuth endpoint; any HTTP response proves that Python can
+reach the endpoint, while a traceback indicates a network or TLS problem.
+
 ```bash
 python - <<'PY'
 import os
 import httpx
 
-url = os.environ["SERVICENOW_BASE_URL"] + os.environ["SERVICENOW_OAUTH_TOKEN_PATH"]
+url = (
+    os.environ["SERVICENOW_BASE_URL"].rstrip("/")
+    + "/"
+    + os.environ["SERVICENOW_OAUTH_TOKEN_PATH"].lstrip("/")
+)
 response = httpx.get(url, timeout=10)
 print(response.status_code)
 print(response.text[:500])
 PY
 ```
+
+### Inspect the effective URL, proxy settings, and DNS
+
+Use this when Python reports `getaddrinfo failed` or connects to an unexpected path. It prints no
+credentials, but it reveals hidden characters, Git Bash path conversion, active proxy variables,
+and DNS resolution results.
 
 ```bash
 set -a
@@ -22,7 +45,11 @@ import os
 import socket
 from urllib.parse import urlsplit
 
-url = os.environ["SERVICENOW_BASE_URL"] + os.environ["SERVICENOW_OAUTH_TOKEN_PATH"]
+url = (
+    os.environ["SERVICENOW_BASE_URL"].rstrip("/")
+    + "/"
+    + os.environ["SERVICENOW_OAUTH_TOKEN_PATH"].lstrip("/")
+)
 parsed = urlsplit(url)
 
 print("URL:", repr(url))
@@ -38,6 +65,11 @@ except Exception as exc:
 PY
 ```
 
+### Print the complete Python/httpx connection error
+
+Use this when the MCP result only reports `UPSTREAM_UNAVAILABLE`. The full traceback distinguishes
+DNS, proxy, timeout, and certificate-verification failures.
+
 ```bash
 set -a
 source .env
@@ -48,7 +80,11 @@ import os
 import traceback
 import httpx
 
-url = os.environ["SERVICENOW_BASE_URL"] + os.environ["SERVICENOW_OAUTH_TOKEN_PATH"]
+url = (
+    os.environ["SERVICENOW_BASE_URL"].rstrip("/")
+    + "/"
+    + os.environ["SERVICENOW_OAUTH_TOKEN_PATH"].lstrip("/")
+)
 
 try:
     response = httpx.get(url, timeout=10)
@@ -59,10 +95,16 @@ except Exception:
 PY
 ```
 
+### End-to-end OAuth and Knowledge API check without MCP or jq
+
+This obtains a client-credentials token and searches ServiceNow Knowledge directly. It uses
+Python for JSON parsing, so `jq` is not required. `--ssl-revoke-best-effort` is intended for
+Windows Schannel diagnostics when the corporate network cannot complete a revocation check.
+
 ```bash
 set -a; source .env; set +a; \
 SN_ACCESS_TOKEN="$(curl --ssl-revoke-best-effort -sS -X POST \
-  "${SERVICENOW_BASE_URL}${SERVICENOW_OAUTH_TOKEN_PATH}" \
+  "${SERVICENOW_BASE_URL%/}/${SERVICENOW_OAUTH_TOKEN_PATH#/}" \
   -H 'Accept: application/json' \
   -H 'Content-Type: application/x-www-form-urlencoded' \
   --data-urlencode 'grant_type=client_credentials' \
@@ -71,7 +113,7 @@ SN_ACCESS_TOKEN="$(curl --ssl-revoke-best-effort -sS -X POST \
   --data-urlencode "scope=${SERVICENOW_OAUTH_SCOPE}" |
   python -c 'import json,sys; print(json.load(sys.stdin)["access_token"])')" && \
 curl --ssl-revoke-best-effort -sS -G \
-  "${SERVICENOW_BASE_URL}${SERVICENOW_KNOWLEDGE_API_PATH}" \
+  "${SERVICENOW_BASE_URL%/}/${SERVICENOW_KNOWLEDGE_API_PATH#/}" \
   -H 'Accept: application/json' \
   -H "Authorization: Bearer ${SN_ACCESS_TOKEN}" \
   --data-urlencode 'query=remote access' \
@@ -80,11 +122,17 @@ curl --ssl-revoke-best-effort -sS -G \
   python -m json.tool
 ```
 
+### Show the raw OAuth token endpoint response
+
+Use this to diagnose `invalid_client`, `unsupported_grant_type`, or scope configuration. The
+response may contain an access token, so do not paste or screenshot successful output without
+redacting it.
+
 ```bash
 set -a; source .env; set +a
 
 curl --ssl-revoke-best-effort -sS -X POST \
-  "${SERVICENOW_BASE_URL}${SERVICENOW_OAUTH_TOKEN_PATH}" \
+  "${SERVICENOW_BASE_URL%/}/${SERVICENOW_OAUTH_TOKEN_PATH#/}" \
   -H 'Accept: application/json' \
   -H 'Content-Type: application/x-www-form-urlencoded' \
   --data-urlencode 'grant_type=client_credentials' \
@@ -92,7 +140,6 @@ curl --ssl-revoke-best-effort -sS -X POST \
   --data-urlencode "client_secret=${SERVICENOW_CLIENT_SECRET}" \
   --data-urlencode "scope=${SERVICENOW_OAUTH_SCOPE}"
 ```
-
 
 This guide explains how to use [`scripts/mcp_client.py`](../scripts/mcp_client.py) to call the local ServiceNow Knowledge MCP server.
 
