@@ -1,5 +1,41 @@
 # MCP Python Client Cheatsheet
 
+
+```bash
+set -a; source .env; set +a; \
+SN_ACCESS_TOKEN="$(curl --ssl-revoke-best-effort -sS -X POST \
+  "${SERVICENOW_BASE_URL}${SERVICENOW_OAUTH_TOKEN_PATH}" \
+  -H 'Accept: application/json' \
+  -H 'Content-Type: application/x-www-form-urlencoded' \
+  --data-urlencode 'grant_type=client_credentials' \
+  --data-urlencode "client_id=${SERVICENOW_CLIENT_ID}" \
+  --data-urlencode "client_secret=${SERVICENOW_CLIENT_SECRET}" \
+  --data-urlencode "scope=${SERVICENOW_OAUTH_SCOPE}" |
+  python -c 'import json,sys; print(json.load(sys.stdin)["access_token"])')" && \
+curl --ssl-revoke-best-effort -sS -G \
+  "${SERVICENOW_BASE_URL}${SERVICENOW_KNOWLEDGE_API_PATH}" \
+  -H 'Accept: application/json' \
+  -H "Authorization: Bearer ${SN_ACCESS_TOKEN}" \
+  --data-urlencode 'query=remote access' \
+  --data-urlencode 'limit=1' \
+  --data-urlencode 'fields=sys_id,number,short_description' |
+  python -m json.tool
+```
+
+```bash
+set -a; source .env; set +a
+
+curl --ssl-revoke-best-effort -sS -X POST \
+  "${SERVICENOW_BASE_URL}${SERVICENOW_OAUTH_TOKEN_PATH}" \
+  -H 'Accept: application/json' \
+  -H 'Content-Type: application/x-www-form-urlencoded' \
+  --data-urlencode 'grant_type=client_credentials' \
+  --data-urlencode "client_id=${SERVICENOW_CLIENT_ID}" \
+  --data-urlencode "client_secret=${SERVICENOW_CLIENT_SECRET}" \
+  --data-urlencode "scope=${SERVICENOW_OAUTH_SCOPE}"
+```
+
+
 This guide explains how to use [`scripts/mcp_client.py`](../scripts/mcp_client.py) to call the local ServiceNow Knowledge MCP server.
 
 The client communicates over HTTP/JSON-RPC and does not require the `fastmcp` CLI.
