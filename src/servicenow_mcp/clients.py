@@ -12,6 +12,7 @@ from .auth import AuthorizationContext, ServiceNowAuthenticator
 from .config import ServiceNowKnowledgeConfig
 from .errors import ErrorCode, KnowledgeMcpError
 from .models import KnowledgeArticle, KnowledgeAttachment, KnowledgeSearchCandidate
+from .tls import system_ssl_context
 
 
 class KnowledgeClient(ABC):
@@ -50,7 +51,9 @@ class ServiceNowKnowledgeClient(KnowledgeClient):
         self.authenticator = authenticator
         self._owns_client = http_client is None
         self.http_client = http_client or httpx.AsyncClient(
-            base_url=config.servicenow_base_url, timeout=config.request_timeout_seconds
+            base_url=config.servicenow_base_url,
+            timeout=config.request_timeout_seconds,
+            verify=system_ssl_context(),
         )
 
     async def aclose(self) -> None:

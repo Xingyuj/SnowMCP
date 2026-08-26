@@ -16,7 +16,7 @@ ServiceNowKnowledgeClient
 ServiceNow Knowledge Management REST API
 ```
 
-The client centralizes authentication headers, endpoint construction, field selection, bounded transient retries, timeout/error mapping, JSON normalization, and binary attachment limits. Credentials, authorization headers, article content, and attachment bodies are not logged.
+The client centralizes authentication headers, endpoint construction, field selection, bounded transient retries, timeout/error mapping, JSON normalization, and binary attachment limits. HTTPS verification uses the operating system trust store so enterprise-managed root certificates are honored. Credentials, authorization headers, article content, and attachment bodies are not logged.
 
 ## Tool mapping
 

@@ -6,6 +6,7 @@ import httpx
 from pydantic import BaseModel, ConfigDict, Field
 
 from .errors import ErrorCode, KnowledgeMcpError
+from .tls import system_ssl_context
 
 
 class AuthorizationContext(BaseModel):
@@ -59,7 +60,11 @@ class ClientCredentialsAuthenticator(ServiceNowAuthenticator):
         self._token_path = token_path
         self._scope = scope
         self._owns_client = http_client is None
-        self._http_client = http_client or httpx.AsyncClient(base_url=base_url, timeout=timeout)
+        self._http_client = http_client or httpx.AsyncClient(
+            base_url=base_url,
+            timeout=timeout,
+            verify=system_ssl_context(),
+        )
         self._access_token: str | None = None
         self._expires_at = 0.0
         self._lock = asyncio.Lock()

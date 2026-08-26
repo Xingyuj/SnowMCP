@@ -460,6 +460,21 @@ SERVICENOW_CLIENT_SECRET=your-client-secret
 
 Restart the MCP server after changing `.env`.
 
+### CERTIFICATE_VERIFY_FAILED
+
+The MCP HTTP clients use the operating system certificate store through `truststore`, including
+enterprise-managed root certificates. Reinstall the project after pulling dependency changes,
+then restart the MCP server:
+
+```bash
+python -m pip install -e '.[dev]'
+python -m servicenow_mcp.server
+```
+
+If verification still fails, confirm with the corporate security or network team that the TLS
+inspection root certificate is installed in the Windows Trusted Root Certification Authorities
+store. Do not disable TLS verification in production.
+
 ### FORBIDDEN
 
 ServiceNow accepted the authentication details, but the integration identity cannot access the requested content. Check its roles, ACLs, User Criteria, and Knowledge Base permissions.
