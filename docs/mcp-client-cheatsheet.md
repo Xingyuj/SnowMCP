@@ -1,6 +1,44 @@
 # MCP Python Client Cheatsheet
 
 ```bash
+python - <<'PY'
+import os
+import httpx
+
+url = os.environ["SERVICENOW_BASE_URL"] + os.environ["SERVICENOW_OAUTH_TOKEN_PATH"]
+response = httpx.get(url, timeout=10)
+print(response.status_code)
+print(response.text[:500])
+PY
+```
+
+```bash
+set -a
+source .env
+set +a
+
+python - <<'PY'
+import os
+import socket
+from urllib.parse import urlsplit
+
+url = os.environ["SERVICENOW_BASE_URL"] + os.environ["SERVICENOW_OAUTH_TOKEN_PATH"]
+parsed = urlsplit(url)
+
+print("URL:", repr(url))
+print("Hostname:", repr(parsed.hostname))
+
+for name in ("HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "NO_PROXY"):
+    print(f"{name}:", repr(os.environ.get(name)))
+
+try:
+    print("DNS:", socket.getaddrinfo(parsed.hostname, 443))
+except Exception as exc:
+    print("DNS failed:", repr(exc))
+PY
+```
+
+```bash
 set -a
 source .env
 set +a
