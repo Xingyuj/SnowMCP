@@ -11,6 +11,10 @@ class ServiceNowKnowledgeConfig(BaseSettings):
     servicenow_base_url: str = ""
     servicenow_knowledge_api_path: str = "/api/sn_km_api/knowledge/articles"
     servicenow_access_token: SecretStr | None = Field(default=None, repr=False)
+    servicenow_client_id: str | None = None
+    servicenow_client_secret: SecretStr | None = Field(default=None, repr=False)
+    servicenow_oauth_token_path: str = "/oauth_token.do"
+    servicenow_oauth_scope: str | None = None
     servicenow_api_version: str | None = None
     servicenow_knowledge_base: str | None = None
     servicenow_language: str | None = None
@@ -53,6 +57,13 @@ class ServiceNowKnowledgeConfig(BaseSettings):
     def validate_runtime(self) -> None:
         if not self.servicenow_base_url:
             raise ValueError("SERVICENOW_BASE_URL is required")
+        if not self.servicenow_access_token and not (
+            self.servicenow_client_id and self.servicenow_client_secret
+        ):
+            raise ValueError(
+                "Configure SERVICENOW_ACCESS_TOKEN or both SERVICENOW_CLIENT_ID and "
+                "SERVICENOW_CLIENT_SECRET"
+            )
         if self.default_search_limit > self.max_search_limit:
             raise ValueError("DEFAULT_SEARCH_LIMIT cannot exceed MAX_SEARCH_LIMIT")
 

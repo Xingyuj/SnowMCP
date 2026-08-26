@@ -58,7 +58,7 @@ docker run --env-file .env -p 8080:8080 servicenow-knowledge-mcp
 
 ## Configuration
 
-All settings are shown in [.env.example](.env.example). `SERVICENOW_BASE_URL` is required at runtime. `SERVICENOW_ACCESS_TOKEN` supplies the integration identity token. Search and article field selections are centralized in `SERVICENOW_SEARCH_FIELDS` and `SERVICENOW_ARTICLE_FIELDS` so verified standard or custom fields can be adopted without modifying the client.
+All settings are shown in [.env.example](.env.example). `SERVICENOW_BASE_URL` is required at runtime. Authentication can use a static `SERVICENOW_ACCESS_TOKEN`, or `SERVICENOW_CLIENT_ID` and `SERVICENOW_CLIENT_SECRET` to obtain and cache a token from `SERVICENOW_OAUTH_TOKEN_PATH`. A static access token takes precedence. Search and article field selections are centralized in `SERVICENOW_SEARCH_FIELDS` and `SERVICENOW_ARTICLE_FIELDS` so verified standard or custom fields can be adopted without modifying the client.
 
 The default API path and query parameter names are implementation assumptions that must be checked against the selected ServiceNow Knowledge Management API version. Search can be scoped with configured or per-tool Knowledge Base and language values. The requested result limit, article content length, attachment bytes, timeout, and transient retries are bounded.
 

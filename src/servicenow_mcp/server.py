@@ -5,7 +5,11 @@ from contextlib import asynccontextmanager
 from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
 
-from .auth import IntegrationTokenAuthenticator
+from .auth import (
+    ClientCredentialsAuthenticator,
+    IntegrationTokenAuthenticator,
+    ServiceNowAuthenticator,
+)
 from .clients import ServiceNowKnowledgeClient
 from .config import ServiceNowKnowledgeConfig, get_config
 from .errors import KnowledgeMcpError
@@ -19,12 +23,23 @@ def build_service(
     config: ServiceNowKnowledgeConfig,
 ) -> tuple[KnowledgeService, ServiceNowKnowledgeClient]:
     config.validate_runtime()
-    token = (
-        config.servicenow_access_token.get_secret_value()
-        if config.servicenow_access_token
-        else None
-    )
-    client = ServiceNowKnowledgeClient(config, IntegrationTokenAuthenticator(token))
+    authenticator: ServiceNowAuthenticator
+    if config.servicenow_access_token:
+        authenticator = IntegrationTokenAuthenticator(
+            config.servicenow_access_token.get_secret_value()
+        )
+    else:
+        assert config.servicenow_client_id is not None
+        assert config.servicenow_client_secret is not None
+        authenticator = ClientCredentialsAuthenticator(
+            base_url=config.servicenow_base_url,
+            client_id=config.servicenow_client_id,
+            client_secret=config.servicenow_client_secret.get_secret_value(),
+            token_path=config.servicenow_oauth_token_path,
+            scope=config.servicenow_oauth_scope,
+            timeout=config.request_timeout_seconds,
+        )
+    client = ServiceNowKnowledgeClient(config, authenticator)
     return KnowledgeService(client, config), client
 
 

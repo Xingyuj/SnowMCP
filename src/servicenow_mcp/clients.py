@@ -54,11 +54,14 @@ class ServiceNowKnowledgeClient(KnowledgeClient):
         )
 
     async def aclose(self) -> None:
+        await self.authenticator.aclose()
         if self._owns_client:
             await self.http_client.aclose()
 
-    def _headers(self, authorization: AuthorizationContext | None, accept: str) -> dict[str, str]:
-        headers = {"Accept": accept, **self.authenticator.headers(authorization)}
+    async def _headers(
+        self, authorization: AuthorizationContext | None, accept: str
+    ) -> dict[str, str]:
+        headers = {"Accept": accept, **await self.authenticator.headers(authorization)}
         if self.config.servicenow_api_version:
             headers["Accept-Version"] = self.config.servicenow_api_version
         return headers
@@ -79,7 +82,7 @@ class ServiceNowKnowledgeClient(KnowledgeClient):
                     method,
                     path,
                     params=params,
-                    headers=self._headers(authorization, accept),
+                    headers=await self._headers(authorization, accept),
                 )
             except httpx.TimeoutException as exc:
                 if attempt + 1 == attempts:
@@ -261,7 +264,7 @@ class ServiceNowKnowledgeClient(KnowledgeClient):
         for attempt in range(attempts):
             try:
                 async with self.http_client.stream(
-                    "GET", path, headers=self._headers(authorization, "*/*")
+                    "GET", path, headers=await self._headers(authorization, "*/*")
                 ) as response:
                     if (
                         response.status_code == 429 or response.status_code >= 500
