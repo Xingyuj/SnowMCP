@@ -134,7 +134,7 @@ SERVICENOW_BASE_URL=https://your-instance.service-now.com
 SERVICENOW_ACCESS_TOKEN=
 SERVICENOW_CLIENT_ID=your-client-id
 SERVICENOW_CLIENT_SECRET=your-client-secret
-SERVICENOW_OAUTH_TOKEN_PATH=/oauth_token.do
+SERVICENOW_OAUTH_TOKEN_PATH=oauth_token.do
 SERVICENOW_OAUTH_SCOPE=
 TRANSPORT=http
 HOST=0.0.0.0
@@ -158,14 +158,14 @@ required.
 ```bash
 set -a; source .env; set +a; \
 SN_ACCESS_TOKEN="$(curl -sS -X POST \
-  "${SERVICENOW_BASE_URL}${SERVICENOW_OAUTH_TOKEN_PATH}" \
+  "${SERVICENOW_BASE_URL%/}/${SERVICENOW_OAUTH_TOKEN_PATH#/}" \
   -H 'Accept: application/json' \
   -H 'Content-Type: application/x-www-form-urlencoded' \
   --data-urlencode 'grant_type=client_credentials' \
   --data-urlencode "client_id=${SERVICENOW_CLIENT_ID}" \
   --data-urlencode "client_secret=${SERVICENOW_CLIENT_SECRET}" \
   --data-urlencode "scope=${SERVICENOW_OAUTH_SCOPE}" | jq -er '.access_token')" && \
-curl -sS -G "${SERVICENOW_BASE_URL}${SERVICENOW_KNOWLEDGE_API_PATH}" \
+curl -sS -G "${SERVICENOW_BASE_URL%/}/${SERVICENOW_KNOWLEDGE_API_PATH#/}" \
   -H 'Accept: application/json' \
   -H "Authorization: Bearer ${SN_ACCESS_TOKEN}" \
   --data-urlencode 'query=remote access' \

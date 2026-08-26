@@ -9,11 +9,11 @@ class ServiceNowKnowledgeConfig(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=False, extra="ignore")
 
     servicenow_base_url: str = ""
-    servicenow_knowledge_api_path: str = "/api/sn_km_api/knowledge/articles"
+    servicenow_knowledge_api_path: str = "api/sn_km_api/knowledge/articles"
     servicenow_access_token: SecretStr | None = Field(default=None, repr=False)
     servicenow_client_id: str | None = None
     servicenow_client_secret: SecretStr | None = Field(default=None, repr=False)
-    servicenow_oauth_token_path: str = "/oauth_token.do"
+    servicenow_oauth_token_path: str = "oauth_token.do"
     servicenow_oauth_scope: str | None = None
     servicenow_api_version: str | None = None
     servicenow_knowledge_base: str | None = None
