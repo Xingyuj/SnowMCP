@@ -1,5 +1,25 @@
 # MCP Python Client Cheatsheet
 
+```bash
+set -a
+source .env
+set +a
+
+python - <<'PY'
+import os
+import traceback
+import httpx
+
+url = os.environ["SERVICENOW_BASE_URL"] + os.environ["SERVICENOW_OAUTH_TOKEN_PATH"]
+
+try:
+    response = httpx.get(url, timeout=10)
+    print("HTTP status:", response.status_code)
+    print(response.text[:500])
+except Exception:
+    traceback.print_exc()
+PY
+```
 
 ```bash
 set -a; source .env; set +a; \
