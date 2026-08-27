@@ -2,7 +2,9 @@ import httpx
 import pytest
 
 from servicenow_mcp.auth import AuthorizationContext, ClientCredentialsAuthenticator
+from servicenow_mcp.config import ServiceNowKnowledgeConfig
 from servicenow_mcp.errors import ErrorCode, KnowledgeMcpError
+from servicenow_mcp.server import build_mcp_auth
 
 
 @pytest.mark.asyncio
@@ -54,6 +56,20 @@ async def test_delegated_token_does_not_request_client_credentials_token():
     headers = await authenticator.headers(AuthorizationContext(delegated_token="user-token"))
     assert headers == {"Authorization": "Bearer user-token"}
     await http_client.aclose()
+
+
+def test_mcp_auth_requires_one_key_issuer_and_audience():
+    config = ServiceNowKnowledgeConfig(mcp_auth_enabled=True)
+    with pytest.raises(ValueError, match="exactly one"):
+        build_mcp_auth(config)
+
+    config = ServiceNowKnowledgeConfig(
+        mcp_auth_enabled=True,
+        mcp_jwt_public_key="local-test-secret-that-is-at-least-32-bytes",
+        mcp_jwt_algorithm="HS256",
+    )
+    with pytest.raises(ValueError, match="ISSUER.*AUDIENCE"):
+        build_mcp_auth(config)
 
 
 @pytest.mark.asyncio

@@ -15,6 +15,15 @@ class ServiceNowKnowledgeConfig(BaseSettings):
     servicenow_client_secret: SecretStr | None = Field(default=None, repr=False)
     servicenow_oauth_token_path: str = "oauth_token.do"
     servicenow_oauth_scope: str | None = None
+    mcp_auth_enabled: bool = False
+    mcp_jwt_jwks_uri: str | None = None
+    mcp_jwt_public_key: SecretStr | None = Field(default=None, repr=False)
+    mcp_jwt_issuer: str | None = None
+    mcp_jwt_audience: str | None = None
+    mcp_jwt_algorithm: str = "RS256"
+    mcp_search_scope: str = "knowledge.search"
+    mcp_article_read_scope: str = "knowledge.article.read"
+    mcp_attachment_read_scope: str = "knowledge.attachment.read"
     servicenow_api_version: str | None = None
     servicenow_knowledge_base: str | None = None
     servicenow_language: str | None = None
@@ -66,6 +75,29 @@ class ServiceNowKnowledgeConfig(BaseSettings):
             )
         if self.default_search_limit > self.max_search_limit:
             raise ValueError("DEFAULT_SEARCH_LIMIT cannot exceed MAX_SEARCH_LIMIT")
+        self.validate_mcp_auth()
+
+    def validate_mcp_auth(self) -> None:
+        if not self.mcp_auth_enabled:
+            return
+        configured_keys = bool(self.mcp_jwt_jwks_uri) + bool(self.mcp_jwt_public_key)
+        if configured_keys != 1:
+            raise ValueError(
+                "When MCP_AUTH_ENABLED=true, configure exactly one of MCP_JWT_JWKS_URI "
+                "or MCP_JWT_PUBLIC_KEY"
+            )
+        if not self.mcp_jwt_issuer or not self.mcp_jwt_audience:
+            raise ValueError(
+                "MCP_JWT_ISSUER and MCP_JWT_AUDIENCE are required when MCP auth is enabled"
+            )
+        if not all(
+            (
+                self.mcp_search_scope.strip(),
+                self.mcp_article_read_scope.strip(),
+                self.mcp_attachment_read_scope.strip(),
+            )
+        ):
+            raise ValueError("Every MCP tool scope must be non-empty")
 
 
 @lru_cache

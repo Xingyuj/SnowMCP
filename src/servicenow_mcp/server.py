@@ -4,6 +4,8 @@ from contextlib import asynccontextmanager
 
 from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
+from fastmcp.server.auth import AuthCheck, require_scopes
+from fastmcp.server.auth.providers.jwt import JWTVerifier
 
 from .auth import (
     ClientCredentialsAuthenticator,
@@ -43,10 +45,26 @@ def build_service(
     return KnowledgeService(client, config), client
 
 
+def build_mcp_auth(config: ServiceNowKnowledgeConfig) -> JWTVerifier | None:
+    """Build the inbound MCP JWT verifier; ServiceNow's downstream OAuth is separate."""
+    config.validate_mcp_auth()
+    if not config.mcp_auth_enabled:
+        return None
+    public_key = config.mcp_jwt_public_key.get_secret_value() if config.mcp_jwt_public_key else None
+    return JWTVerifier(
+        public_key=public_key,
+        jwks_uri=config.mcp_jwt_jwks_uri,
+        issuer=config.mcp_jwt_issuer,
+        audience=config.mcp_jwt_audience,
+        algorithm=config.mcp_jwt_algorithm,
+    )
+
+
 def create_mcp(
     service: KnowledgeService | None = None,
     config_provider: Callable[[], ServiceNowKnowledgeConfig] = get_config,
 ) -> FastMCP:
+    config = config_provider()
     state: dict[str, object] = {"service": service}
 
     @asynccontextmanager
@@ -61,14 +79,18 @@ def create_mcp(
     server = FastMCP(
         "ServiceNow Knowledge",
         instructions="Retrieve authoritative enterprise Knowledge Articles without generating answers.",
+        auth=build_mcp_auth(config),
         lifespan=lifespan,
     )
+
+    def scope_check(scope: str) -> AuthCheck | None:
+        return require_scopes(scope) if config.mcp_auth_enabled else None
 
     def resolve_service() -> KnowledgeService:
         current = state.get("service")
         if isinstance(current, KnowledgeService):
             return current
-        current, client = build_service(config_provider())
+        current, client = build_service(config)
         state["service"] = current
         state["owned_client"] = client
         return current
@@ -77,7 +99,8 @@ def create_mcp(
         description=(
             "Use this tool to find relevant enterprise Knowledge Articles from a natural-language "
             "question or keywords. It returns ranked candidates and snippets, not complete article bodies."
-        )
+        ),
+        auth=scope_check(config.mcp_search_scope),
     )
     async def search_knowledge(
         query: str,
@@ -94,7 +117,8 @@ def create_mcp(
         description=(
             "Use this tool after search_knowledge identifies a relevant Knowledge Article and complete "
             "canonical content and publication metadata are needed for grounding."
-        )
+        ),
+        auth=scope_check(config.mcp_article_read_scope),
     )
     async def get_knowledge_article(article_id: str) -> KnowledgeArticle:
         try:
@@ -106,7 +130,8 @@ def create_mcp(
         description=(
             "Use this supporting tool only when a selected Knowledge Article references an attachment "
             "whose contents are required. It returns bounded base64 binary data and does not parse it."
-        )
+        ),
+        auth=scope_check(config.mcp_attachment_read_scope),
     )
     async def get_knowledge_attachment(
         article_sys_id: str, attachment_sys_id: str

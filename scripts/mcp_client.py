@@ -4,6 +4,7 @@ import argparse
 import asyncio
 import base64
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Any, Self
@@ -14,17 +15,20 @@ import httpx
 class McpHttpClient:
     """Minimal Streamable HTTP/JSON-RPC client for this stateless MCP server."""
 
-    def __init__(self, server_url: str, timeout: float) -> None:
+    def __init__(self, server_url: str, timeout: float, token: str | None = None) -> None:
         self._next_id = 0
         self._session_id: str | None = None
+        headers = {
+            "Content-Type": "application/json",
+            "Accept": "application/json, text/event-stream",
+        }
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
         self._client = httpx.AsyncClient(
             base_url=server_url,
             timeout=timeout,
             follow_redirects=True,
-            headers={
-                "Content-Type": "application/json",
-                "Accept": "application/json, text/event-stream",
-            },
+            headers=headers,
         )
 
     async def __aenter__(self) -> Self:
@@ -125,6 +129,11 @@ def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Call the local ServiceNow Knowledge MCP server")
     parser.add_argument("--server", default="http://127.0.0.1:8080/mcp")
     parser.add_argument("--timeout", type=float, default=30.0)
+    parser.add_argument(
+        "--token",
+        default=os.getenv("MCP_ACCESS_TOKEN"),
+        help="Bearer token (defaults to MCP_ACCESS_TOKEN)",
+    )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     subparsers.add_parser("list", help="List tools exposed by the MCP server")
@@ -146,7 +155,7 @@ def _parser() -> argparse.ArgumentParser:
 
 
 async def _run(args: argparse.Namespace) -> None:
-    async with McpHttpClient(args.server, args.timeout) as client:
+    async with McpHttpClient(args.server, args.timeout, args.token) as client:
         if args.command == "list":
             result = await client.list_tools()
             tools = result.get("tools", [])
@@ -178,6 +187,18 @@ async def _run(args: argparse.Namespace) -> None:
                     "attachment_sys_id": args.attachment_id,
                 },
             )
+
+        if result.get("isError"):
+            content = result.get("content")
+            if isinstance(content, list):
+                messages = [
+                    item["text"]
+                    for item in content
+                    if isinstance(item, dict) and isinstance(item.get("text"), str)
+                ]
+                if messages:
+                    raise RuntimeError("; ".join(messages))
+            raise RuntimeError("MCP tool call failed")
 
         output = _tool_output(result)
         if args.command == "attachment" and args.output:

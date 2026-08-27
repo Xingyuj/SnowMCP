@@ -1,4 +1,5 @@
 from fastmcp import Client
+from fastmcp.server.auth import AccessToken, AuthContext, run_auth_checks
 
 from servicenow_mcp.auth import AuthorizationContext
 from servicenow_mcp.clients import KnowledgeClient
@@ -79,3 +80,36 @@ async def test_all_fastmcp_tool_contracts_in_process():
         attachment.structured_content is not None
         and attachment.structured_content["content_type"] == "application/pdf"
     )
+
+
+async def test_every_tool_requires_its_own_scope_when_auth_is_enabled():
+    config = ServiceNowKnowledgeConfig(
+        mcp_auth_enabled=True,
+        mcp_jwt_public_key="local-test-secret-that-is-at-least-32-bytes",
+        mcp_jwt_algorithm="HS256",
+        mcp_jwt_issuer="https://local.test",
+        mcp_jwt_audience="servicenow-knowledge-mcp",
+    )
+    server = create_mcp(
+        KnowledgeService(ToolClient(), config),
+        config_provider=lambda: config,
+    )
+    expected_scopes = {
+        "search_knowledge": config.mcp_search_scope,
+        "get_knowledge_article": config.mcp_article_read_scope,
+        "get_knowledge_attachment": config.mcp_attachment_read_scope,
+    }
+
+    for tool_name, required_scope in expected_scopes.items():
+        tool = await server._local_provider.get_tool(tool_name)
+        assert tool is not None and tool.auth is not None
+        allowed = AuthContext(
+            token=AccessToken(token="allowed", client_id="test", scopes=[required_scope]),
+            component=tool,
+        )
+        denied = AuthContext(
+            token=AccessToken(token="denied", client_id="test", scopes=["some.other.scope"]),
+            component=tool,
+        )
+        assert await run_auth_checks(tool.auth, allowed)
+        assert not await run_auth_checks(tool.auth, denied)
