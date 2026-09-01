@@ -47,12 +47,3 @@ class KnowledgeArticle(BaseModel):
     valid_to: str | None = None
     updated_on: str | None = None
     link: str | None = None
-
-
-class KnowledgeAttachment(BaseModel):
-    article_id: str
-    attachment_id: str
-    filename: str | None = None
-    content_type: str
-    size_bytes: int = Field(ge=0)
-    content_base64: str

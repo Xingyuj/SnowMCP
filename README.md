@@ -9,13 +9,13 @@
 
 Connect AI assistants to authoritative ServiceNow Knowledge content. Three focused, read-only tools
 for searching articles, browsing categories, and retrieving canonical content—available to any MCP
-client over stdio or Streamable HTTP.
+client over Streamable HTTP.
 
 </div>
 
 ---
 
-`Knowledge API` · `Category hierarchy` · `OAuth client credentials` · `JWT scope enforcement` · `Streamable HTTP` · `stdio`
+`Knowledge API` · `Category hierarchy` · `Entra ID` · `Azure APIM` · `Per-tool scopes` · `Streamable HTTP`
 
 ## What this does
 
@@ -30,7 +30,8 @@ table access or mutation capabilities.
   root certificates.
 - **Bounded responses:** limits search results, article content, timeouts, and retries.
 - **Credential-safe logging:** credentials, authorization headers, and article bodies are not logged.
-- **Optional MCP authorization:** validates inbound JWTs and enforces a separate scope per tool.
+- **APIM trust boundary:** APIM validates Entra ID tokens; the MCP server authenticates APIM,
+  extracts the already-validated claims, and enforces a separate scope per tool.
 
 ## Quick start
 
@@ -71,19 +72,13 @@ Do not commit `.env` or expose access tokens and client secrets in logs or scree
 
 ### 3. Start the server
 
-Streamable HTTP is the default transport:
+The server uses Streamable HTTP:
 
 ```bash
 servicenow-knowledge-mcp
 ```
 
 The MCP endpoint is available at `http://127.0.0.1:8080/mcp`.
-
-For a client that launches the server as a subprocess, use stdio:
-
-```bash
-TRANSPORT=stdio servicenow-knowledge-mcp
-```
 
 ### 4. Verify
 
@@ -97,30 +92,25 @@ python scripts/mcp_client.py search "remote access" --limit 5
 
 ## Configure an MCP client
 
-For clients that accept an MCP server JSON configuration, use the virtual environment executable
-and provide credentials through the client environment. Replace `/absolute/path/to/SnowMCP` with
-the cloned repository path.
+Configure the client to connect to the deployed Streamable HTTP endpoint. A typical remote MCP
+configuration looks like this:
 
 ```json
 {
   "mcpServers": {
     "servicenow-knowledge": {
-      "command": "/absolute/path/to/SnowMCP/.venv/bin/servicenow-knowledge-mcp",
-      "env": {
-        "TRANSPORT": "stdio",
-        "SERVICENOW_BASE_URL": "https://your-instance.service-now.com",
-        "SERVICENOW_CLIENT_ID": "your-client-id",
-        "SERVICENOW_CLIENT_SECRET": "your-client-secret",
-        "SERVICENOW_OAUTH_TOKEN_PATH": "oauth_token.do"
+      "type": "http",
+      "url": "https://your-mcp-host.example/mcp",
+      "headers": {
+        "Authorization": "Bearer ${MCP_ACCESS_TOKEN}"
       }
     }
   }
 }
 ```
 
-The same structure is commonly accepted by Claude Desktop, Cursor, and VS Code, although the
-configuration file location differs by client. If the client supports remote MCP servers, point it
-to the deployed `/mcp` endpoint instead.
+Exact field names and configuration file locations vary by client. In production, the client sends
+the Entra ID access token to APIM.
 
 ## Available tools
 
@@ -148,20 +138,63 @@ AI, or UI-equivalent ranking behavior.
 ```mermaid
 flowchart LR
     Client[AI assistant / MCP client]
-    Server[FastMCP server]
+    Entra[Microsoft Entra ID]
     Service[KnowledgeService]
-    API[ServiceNowKnowledgeClient]
+    API[ServiceNow Knowledge API Client]
     SN[ServiceNow Knowledge APIs]
 
-    Client -->|stdio or Streamable HTTP| Server
-    Server --> Service
+    subgraph APIM[Azure API Management]
+        direction TB
+        Gateway[Streamable HTTP gateway]
+        Validate[validate-azure-ad-token]
+        Forward[Forward validated bearer token]
+
+        Gateway --> Validate
+        Validate --> Forward
+    end
+
+    subgraph FastMCP[FastMCP server]
+        direction TB
+        Transport[Streamable HTTP transport]
+        Claims["Extract APIM-validated claims<br/>no JWT signature validation"]
+        Scopes[Per-tool scope checks]
+
+        Tools["Tool handlers<br/>search_knowledge<br/>list_knowledge_categories<br/>get_knowledge_article"]
+        Resolver["Service resolver + shared state<br/>lazy initialization and reuse"]
+        Lifecycle[FastMCP lifespan]
+
+        Transport --> Claims
+        Claims --> Scopes
+        Scopes --> Tools
+        Tools --> Resolver
+    end
+
+    Client -->|request access token| Entra
+    Entra -->|signed access token| Client
+    Client -->|Bearer token| Gateway
+    Entra -.->|issuer metadata and signing keys| Validate
+    Forward -->|network-restricted backend route| Transport
+    Resolver -->|resolve KnowledgeService| Service
     Service --> API
+    Lifecycle -.->|shutdown cleanup| API
     API -->|OAuth bearer token / HTTPS| SN
 ```
 
-The client layer centralizes authentication headers, endpoint construction, field selection,
-automatic category pagination, bounded transient retries, error mapping, JSON normalization, and
-response limits.
+The tool handlers call the service resolver rather than constructing dependencies for every
+request. On the first call, the resolver creates the outbound authenticator,
+`ServiceNowKnowledgeApiClient`, and `KnowledgeService`, then stores the owned instances in shared
+server state. Later calls reuse them, including the HTTP connection pool and cached OAuth token.
+When FastMCP shuts down, its lifespan hook closes the owned ServiceNow client and authenticator.
+
+APIM validates the user token's signature, issuer, audience, and expiry. The MCP server deliberately
+does not repeat those cryptographic checks: it relies on the enforced APIM-only network boundary,
+decodes the forwarded validated token, and applies FastMCP per-tool scope checks.
+`APIM_AUTH_ENABLED=false` disables claims extraction and tool scope enforcement and is intended only
+for local development.
+
+`KnowledgeService` owns request validation, configured limits, category pagination, and response
+construction. `ServiceNowKnowledgeApiClient` owns authentication headers, endpoint construction,
+field selection, TLS, bounded transient retries, upstream error mapping, and JSON normalization.
 
 ## Configuration
 
@@ -175,8 +208,8 @@ important groups are:
 | Retrieval scope | `SERVICENOW_KNOWLEDGE_BASE`, `SERVICENOW_LANGUAGE`, `SERVICENOW_SEARCH_FIELDS`, `SERVICENOW_ARTICLE_FIELDS`, `SERVICENOW_CATEGORY_FIELDS` |
 | Response bounds | `DEFAULT_SEARCH_LIMIT`, `MAX_SEARCH_LIMIT`, `CATEGORY_PAGE_SIZE`, `MAX_ARTICLE_CONTENT_CHARS` |
 | Reliability | `REQUEST_TIMEOUT_SECONDS`, `TRANSIENT_RETRY_ATTEMPTS`, `RETRY_BACKOFF_SECONDS`, `LOG_LEVEL` |
-| Server | `TRANSPORT`, `HOST`, `PORT` |
-| Inbound MCP auth | `MCP_AUTH_ENABLED`, `MCP_JWT_JWKS_URI` or `MCP_JWT_PUBLIC_KEY`, issuer, audience, algorithm, and per-tool scopes |
+| Server | `HOST`, `PORT` |
+| APIM claims authorization | `APIM_AUTH_ENABLED`, `APIM_SCOPE_CLAIM_NAMES`, `APIM_SUBJECT_CLAIM_NAMES`, and per-tool scopes |
 
 A configured static ServiceNow access token takes precedence over OAuth client credentials. When
 client credentials are used, the server obtains and caches the access token automatically.
@@ -187,20 +220,28 @@ production deployment.
 
 ## Authentication and authorization boundary
 
-There are two independent authentication hops:
+There are three distinct security boundaries:
 
-1. **MCP client → this server:** optional inbound JWT verification using a JWKS endpoint or public
-   key, with per-tool scope checks.
-2. **This server → ServiceNow:** a static bearer token or OAuth client credentials for the configured
+1. **MCP client → APIM:** the client obtains an Entra ID access token. APIM must use
+   `validate-azure-ad-token` to verify its signature, issuer, audience, and expiry.
+2. **APIM → MCP server:** enforced network controls guarantee that only APIM can reach the backend.
+   APIM forwards the validated bearer token, and the MCP server extracts `oid`/`sub` and
+   `scp`/`scope`/`roles` without repeating signature validation.
+3. **This server → ServiceNow:** a static bearer token or OAuth client credentials for the configured
    ServiceNow integration identity.
+
+APIM must forward the original validated `Authorization: Bearer ...` header because the MCP server
+uses its claims for tool authorization. The APIM-only network restriction is a mandatory security
+control for this design; exposing the backend through another route would allow unvalidated claims
+to reach the MCP server.
 
 An integration identity does not prove that each end user's Knowledge ACLs, User Criteria, roles,
 group membership, or article restrictions are enforced. The current tools do not accept or invent a
 delegated end-user credential. Production use must wait until the applicable entitlement model is
 confirmed and tested for the target instance.
 
-See [MCP scope authorization and local testing](docs/mcp-scope-testing.md) for JWT configuration,
-scope mapping, test-token generation, and copy-ready calls.
+See [APIM claims authorization and local testing](docs/mcp-scope-testing.md) for the APIM contract,
+scope mapping, and copy-ready calls.
 
 ## Docker
 

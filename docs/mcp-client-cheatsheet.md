@@ -254,7 +254,6 @@ Show the arguments for each subcommand:
 ```bash
 .venv/bin/python scripts/mcp_client.py search --help
 .venv/bin/python scripts/mcp_client.py article --help
-.venv/bin/python scripts/mcp_client.py attachment --help
 ```
 
 ## 6. List MCP tools
@@ -269,7 +268,6 @@ Expected tools:
 search_knowledge
 list_knowledge_categories
 get_knowledge_article
-get_knowledge_attachment
 ```
 
 List every Knowledge category visible to the configured ServiceNow identity (the server
@@ -350,49 +348,9 @@ Example:
 
 The response can include the title, content, Knowledge Base, category, publication state, validity date, and update timestamp.
 
-## 9. Retrieve attachment data
+## 9. Use a different MCP endpoint
 
-Print the attachment metadata and Base64-encoded content without saving a file:
-
-```bash
-.venv/bin/python scripts/mcp_client.py attachment \
-  ARTICLE_SYS_ID \
-  ATTACHMENT_SYS_ID
-```
-
-The returned `content_base64` field contains the binary attachment encoded as Base64.
-
-## 10. Download an attachment
-
-Use `--output` to decode the Base64 content and save it as a file:
-
-```bash
-.venv/bin/python scripts/mcp_client.py attachment \
-  ARTICLE_SYS_ID \
-  ATTACHMENT_SYS_ID \
-  --output downloaded-attachment.pdf
-```
-
-Example:
-
-```bash
-.venv/bin/python scripts/mcp_client.py attachment \
-  0123456789abcdef0123456789abcdef \
-  fedcba9876543210fedcba9876543210 \
-  --output guide.pdf
-```
-
-Confirm that the file was created:
-
-```bash
-ls -lh guide.pdf
-```
-
-The client writes a file only when `--output` is explicitly provided.
-
-## 11. Use a different MCP endpoint
-
-`--server` and `--timeout` are global arguments. They must appear before the `list`, `search`, `article`, or `attachment` subcommand.
+`--server` and `--timeout` are global arguments. They must appear before the `list`, `search`, or `article` subcommand.
 
 Connect to port 9000:
 
@@ -425,7 +383,7 @@ Correct argument order:
   list
 ```
 
-## 12. Complete workflow
+## 10. Complete workflow
 
 Start the server in the first terminal:
 
@@ -452,16 +410,7 @@ Copy an `id` from the search result and retrieve the article:
 .venv/bin/python scripts/mcp_client.py article ARTICLE_SYS_ID
 ```
 
-If you have an attachment ID, download the attachment:
-
-```bash
-.venv/bin/python scripts/mcp_client.py attachment \
-  ARTICLE_SYS_ID \
-  ATTACHMENT_SYS_ID \
-  --output attachment.bin
-```
-
-## 13. Troubleshooting
+## 11. Troubleshooting
 
 ### Connection refused
 
@@ -536,23 +485,13 @@ ServiceNow accepted the authentication details, but the integration identity can
 
 ### NOT_FOUND
 
-The article or attachment ID does not exist, or the integration identity cannot see it. Confirm that you are using the search result's `id` value.
+The article ID does not exist, or the integration identity cannot see it. Confirm that you are using the search result's `id` value.
 
 ### RATE_LIMITED
 
 ServiceNow rejected the request because a rate limit was reached. Retry later and check the instance's API rate-limit configuration.
 
-### PAYLOAD_TOO_LARGE
-
-The attachment is larger than the configured limit:
-
-```dotenv
-MAX_ATTACHMENT_BYTES=5000000
-```
-
-Confirm that the attachment is trusted and required before increasing this value. Restart the server after changing `.env`.
-
-## 14. Run automated tests
+## 12. Run automated tests
 
 Test the MCP tools without calling a real ServiceNow instance:
 

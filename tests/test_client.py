@@ -1,10 +1,8 @@
-import base64
-
 import httpx
 import pytest
 
 from servicenow_mcp.auth import IntegrationTokenAuthenticator
-from servicenow_mcp.clients import ServiceNowKnowledgeClient
+from servicenow_mcp.clients import ServiceNowKnowledgeApiClient
 from servicenow_mcp.config import ServiceNowKnowledgeConfig
 from servicenow_mcp.errors import ErrorCode, KnowledgeMcpError
 
@@ -19,12 +17,12 @@ def config(**overrides: object) -> ServiceNowKnowledgeConfig:
     return ServiceNowKnowledgeConfig(**values)
 
 
-def client(handler, **overrides: object) -> ServiceNowKnowledgeClient:
+def client(handler, **overrides: object) -> ServiceNowKnowledgeApiClient:
     settings = config(**overrides)
     http_client = httpx.AsyncClient(
         transport=httpx.MockTransport(handler), base_url=settings.servicenow_base_url
     )
-    return ServiceNowKnowledgeClient(
+    return ServiceNowKnowledgeApiClient(
         settings, IntegrationTokenAuthenticator("test-token"), http_client
     )
 
@@ -137,35 +135,6 @@ async def test_get_article_accepts_missing_optional_fields():
 
 
 @pytest.mark.asyncio
-async def test_attachment_preserves_binary_metadata_and_empty_body():
-    binary = b"\x00\xffbinary"
-    attachment = await client(
-        lambda _: httpx.Response(
-            200,
-            content=binary,
-            headers={
-                "Content-Type": "application/octet-stream",
-                "Content-Disposition": 'attachment; filename="guide.bin"',
-            },
-        )
-    ).get_attachment("article-1", "attachment-1")
-    assert attachment.filename == "guide.bin"
-    assert attachment.content_type == "application/octet-stream"
-    assert base64.b64decode(attachment.content_base64) == binary
-    empty = await client(lambda _: httpx.Response(200, content=b"")).get_attachment("a", "b")
-    assert empty.size_bytes == 0
-
-
-@pytest.mark.asyncio
-async def test_attachment_size_limit():
-    with pytest.raises(KnowledgeMcpError) as exc:
-        await client(
-            lambda _: httpx.Response(200, content=b"12345"), max_attachment_bytes=4
-        ).get_attachment("a", "b")
-    assert exc.value.code == ErrorCode.PAYLOAD_TOO_LARGE
-
-
-@pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("status", "code"),
     [
@@ -206,22 +175,12 @@ async def test_article_malformed_response():
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize(
-    ("status", "code"), [(404, ErrorCode.NOT_FOUND), (403, ErrorCode.FORBIDDEN)]
-)
-async def test_attachment_status_mapping(status: int, code: ErrorCode):
-    with pytest.raises(KnowledgeMcpError) as exc:
-        await client(lambda _: httpx.Response(status)).get_attachment("article-1", "attachment-1")
-    assert exc.value.code == code
-
-
-@pytest.mark.asyncio
 async def test_timeout_mapping():
     async def handler(_: httpx.Request) -> httpx.Response:
         raise httpx.ReadTimeout("timeout")
 
     with pytest.raises(KnowledgeMcpError) as exc:
-        await client(handler).get_attachment("article-1", "attachment-1")
+        await client(handler).search("query", 1, None, None)
     assert exc.value.code == ErrorCode.UPSTREAM_TIMEOUT
 
 

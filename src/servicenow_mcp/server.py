@@ -4,20 +4,19 @@ from contextlib import asynccontextmanager
 
 from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
-from fastmcp.server.auth import AuthCheck, require_scopes
-from fastmcp.server.auth.providers.jwt import JWTVerifier
+from fastmcp.server.auth import AuthCheck, TokenVerifier, require_scopes
 
 from .auth import (
+    ApimClaimsTokenVerifier,
     ClientCredentialsAuthenticator,
     IntegrationTokenAuthenticator,
     ServiceNowAuthenticator,
 )
-from .clients import ServiceNowKnowledgeClient
+from .clients import ServiceNowKnowledgeApiClient
 from .config import ServiceNowKnowledgeConfig, get_config
 from .errors import KnowledgeMcpError
 from .models import (
     KnowledgeArticle,
-    KnowledgeAttachment,
     KnowledgeCategoriesResponse,
     KnowledgeSearchResponse,
 )
@@ -28,7 +27,7 @@ log = logging.getLogger("servicenow_knowledge_mcp")
 
 def build_service(
     config: ServiceNowKnowledgeConfig,
-) -> tuple[KnowledgeService, ServiceNowKnowledgeClient]:
+) -> tuple[KnowledgeService, ServiceNowKnowledgeApiClient]:
     config.validate_runtime()
     authenticator: ServiceNowAuthenticator
     if config.servicenow_access_token:
@@ -46,22 +45,18 @@ def build_service(
             scope=config.servicenow_oauth_scope,
             timeout=config.request_timeout_seconds,
         )
-    client = ServiceNowKnowledgeClient(config, authenticator)
+    client = ServiceNowKnowledgeApiClient(config, authenticator)
     return KnowledgeService(client, config), client
 
 
-def build_mcp_auth(config: ServiceNowKnowledgeConfig) -> JWTVerifier | None:
-    """Build the inbound MCP JWT verifier; ServiceNow's downstream OAuth is separate."""
-    config.validate_mcp_auth()
-    if not config.mcp_auth_enabled:
+def build_apim_auth(config: ServiceNowKnowledgeConfig) -> TokenVerifier | None:
+    """Trust user-token claims only after APIM has validated and forwarded the token."""
+    config.validate_apim_auth()
+    if not config.apim_auth_enabled:
         return None
-    public_key = config.mcp_jwt_public_key.get_secret_value() if config.mcp_jwt_public_key else None
-    return JWTVerifier(
-        public_key=public_key,
-        jwks_uri=config.mcp_jwt_jwks_uri,
-        issuer=config.mcp_jwt_issuer,
-        audience=config.mcp_jwt_audience,
-        algorithm=config.mcp_jwt_algorithm,
+    return ApimClaimsTokenVerifier(
+        scope_claim_names=config.apim_scope_claims,
+        subject_claim_names=config.apim_subject_claims,
     )
 
 
@@ -78,18 +73,18 @@ def create_mcp(
             yield state
         finally:
             owned_client = state.get("owned_client")
-            if isinstance(owned_client, ServiceNowKnowledgeClient):
+            if isinstance(owned_client, ServiceNowKnowledgeApiClient):
                 await owned_client.aclose()
 
     server = FastMCP(
         "ServiceNow Knowledge",
         instructions="Retrieve authoritative enterprise Knowledge Articles without generating answers.",
-        auth=build_mcp_auth(config),
+        auth=build_apim_auth(config),
         lifespan=lifespan,
     )
 
     def scope_check(scope: str) -> AuthCheck | None:
-        return require_scopes(scope) if config.mcp_auth_enabled else None
+        return require_scopes(scope) if config.apim_auth_enabled else None
 
     def resolve_service() -> KnowledgeService:
         current = state.get("service")
@@ -144,23 +139,6 @@ def create_mcp(
         except KnowledgeMcpError as exc:
             raise ToolError(f"{exc.code}: {exc.message}") from None
 
-    @server.tool(
-        description=(
-            "Use this supporting tool only when a selected Knowledge Article references an attachment "
-            "whose contents are required. It returns bounded base64 binary data and does not parse it."
-        ),
-        auth=scope_check(config.mcp_attachment_read_scope),
-    )
-    async def get_knowledge_attachment(
-        article_sys_id: str, attachment_sys_id: str
-    ) -> KnowledgeAttachment:
-        try:
-            return await resolve_service().get_knowledge_attachment(
-                article_sys_id, attachment_sys_id
-            )
-        except KnowledgeMcpError as exc:
-            raise ToolError(f"{exc.code}: {exc.message}") from None
-
     return server
 
 
@@ -173,7 +151,12 @@ def main() -> None:
         level=getattr(logging, config.log_level.upper(), logging.INFO),
         format="%(asctime)s %(levelname)s %(name)s %(message)s",
     )
-    mcp.run(transport=config.transport, host=config.host, port=config.port, stateless_http=True)
+    mcp.run(
+        transport="streamable-http",
+        host=config.host,
+        port=config.port,
+        stateless_http=True,
+    )
 
 
 if __name__ == "__main__":

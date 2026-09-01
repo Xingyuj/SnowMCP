@@ -1,12 +1,11 @@
 import re
 
 from .auth import AuthorizationContext
-from .clients import KnowledgeClient
+from .clients import KnowledgeBackend
 from .config import ServiceNowKnowledgeConfig
 from .errors import ErrorCode, KnowledgeMcpError
 from .models import (
     KnowledgeArticle,
-    KnowledgeAttachment,
     KnowledgeCategoriesResponse,
     KnowledgeSearchResponse,
 )
@@ -15,7 +14,7 @@ _IDENTIFIER = re.compile(r"^[^\s/\\?#]{1,255}$")
 
 
 class KnowledgeService:
-    def __init__(self, client: KnowledgeClient, config: ServiceNowKnowledgeConfig) -> None:
+    def __init__(self, client: KnowledgeBackend, config: ServiceNowKnowledgeConfig) -> None:
         self.client = client
         self.config = config
 
@@ -66,18 +65,6 @@ class KnowledgeService:
     ) -> KnowledgeArticle:
         return await self.client.get_article(
             _validated_identifier(article_id, "article_id"), authorization
-        )
-
-    async def get_knowledge_attachment(
-        self,
-        article_sys_id: str,
-        attachment_sys_id: str,
-        authorization: AuthorizationContext | None = None,
-    ) -> KnowledgeAttachment:
-        return await self.client.get_attachment(
-            _validated_identifier(article_sys_id, "article_sys_id"),
-            _validated_identifier(attachment_sys_id, "attachment_sys_id"),
-            authorization,
         )
 
 

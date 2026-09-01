@@ -3,19 +3,18 @@ from typing import Any
 import pytest
 
 from servicenow_mcp.auth import AuthorizationContext
-from servicenow_mcp.clients import KnowledgeClient
+from servicenow_mcp.clients import KnowledgeBackend
 from servicenow_mcp.config import ServiceNowKnowledgeConfig
 from servicenow_mcp.errors import ErrorCode, KnowledgeMcpError
 from servicenow_mcp.models import (
     KnowledgeArticle,
-    KnowledgeAttachment,
     KnowledgeCategory,
     KnowledgeSearchCandidate,
 )
 from servicenow_mcp.service import KnowledgeService
 
 
-class RecordingClient(KnowledgeClient):
+class RecordingClient(KnowledgeBackend):
     def __init__(self) -> None:
         self.search_args: tuple[Any, ...] | None = None
         self.category_calls: list[tuple[int, int, AuthorizationContext | None]] = []
@@ -51,17 +50,6 @@ class RecordingClient(KnowledgeClient):
         self, article_id: str, authorization: AuthorizationContext | None = None
     ) -> KnowledgeArticle:
         return KnowledgeArticle(id=article_id, title="Article", content="Body")
-
-    async def get_attachment(
-        self, article_id: str, attachment_id: str, authorization: AuthorizationContext | None = None
-    ) -> KnowledgeAttachment:
-        return KnowledgeAttachment(
-            article_id=article_id,
-            attachment_id=attachment_id,
-            content_type="application/octet-stream",
-            size_bytes=0,
-            content_base64="",
-        )
 
 
 def service() -> tuple[KnowledgeService, RecordingClient]:
@@ -120,12 +108,9 @@ async def test_categories_are_automatically_paginated():
 
 
 @pytest.mark.asyncio
-async def test_article_and_attachment_identifier_validation():
+async def test_article_identifier_validation():
     target, _ = service()
     assert (await target.get_knowledge_article("KB001")).id == "KB001"
-    assert (
-        await target.get_knowledge_attachment("article-1", "attachment-1")
-    ).attachment_id == "attachment-1"
     for invalid in ("", "has space", "path/segment"):
         with pytest.raises(KnowledgeMcpError):
             await target.get_knowledge_article(invalid)

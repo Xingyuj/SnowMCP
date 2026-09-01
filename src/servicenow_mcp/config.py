@@ -1,5 +1,4 @@
 from functools import lru_cache
-from typing import Literal
 
 from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -16,16 +15,12 @@ class ServiceNowKnowledgeConfig(BaseSettings):
     servicenow_client_secret: SecretStr | None = Field(default=None, repr=False)
     servicenow_oauth_token_path: str = "oauth_token.do"
     servicenow_oauth_scope: str | None = None
-    mcp_auth_enabled: bool = False
-    mcp_jwt_jwks_uri: str | None = None
-    mcp_jwt_public_key: SecretStr | None = Field(default=None, repr=False)
-    mcp_jwt_issuer: str | None = None
-    mcp_jwt_audience: str | None = None
-    mcp_jwt_algorithm: str = "RS256"
+    apim_auth_enabled: bool = False
+    apim_scope_claim_names: str = "scp,scope,roles"
+    apim_subject_claim_names: str = "oid,sub"
     mcp_search_scope: str = "knowledge.search"
     mcp_category_read_scope: str = "knowledge.category.read"
     mcp_article_read_scope: str = "knowledge.article.read"
-    mcp_attachment_read_scope: str = "knowledge.attachment.read"
     servicenow_api_version: str | None = None
     servicenow_knowledge_base: str | None = None
     servicenow_language: str | None = None
@@ -42,11 +37,9 @@ class ServiceNowKnowledgeConfig(BaseSettings):
     max_search_limit: int = Field(default=20, ge=1)
     category_page_size: int = Field(default=100, ge=1, le=500)
     max_article_content_chars: int = Field(default=100_000, ge=100)
-    max_attachment_bytes: int = Field(default=5_000_000, ge=1)
     transient_retry_attempts: int = Field(default=2, ge=0, le=5)
     retry_backoff_seconds: float = Field(default=0.2, ge=0, le=10)
     log_level: str = "INFO"
-    transport: Literal["stdio", "http", "sse", "streamable-http"] = "http"
     host: str = "0.0.0.0"
     port: int = Field(default=8080, ge=1, le=65535)
 
@@ -73,6 +66,18 @@ class ServiceNowKnowledgeConfig(BaseSettings):
             field.strip() for field in self.servicenow_category_fields.split(",") if field.strip()
         )
 
+    @property
+    def apim_scope_claims(self) -> tuple[str, ...]:
+        return tuple(
+            name.strip() for name in self.apim_scope_claim_names.split(",") if name.strip()
+        )
+
+    @property
+    def apim_subject_claims(self) -> tuple[str, ...]:
+        return tuple(
+            name.strip() for name in self.apim_subject_claim_names.split(",") if name.strip()
+        )
+
     def validate_runtime(self) -> None:
         if not self.servicenow_base_url:
             raise ValueError("SERVICENOW_BASE_URL is required")
@@ -85,27 +90,18 @@ class ServiceNowKnowledgeConfig(BaseSettings):
             )
         if self.default_search_limit > self.max_search_limit:
             raise ValueError("DEFAULT_SEARCH_LIMIT cannot exceed MAX_SEARCH_LIMIT")
-        self.validate_mcp_auth()
+        self.validate_apim_auth()
 
-    def validate_mcp_auth(self) -> None:
-        if not self.mcp_auth_enabled:
+    def validate_apim_auth(self) -> None:
+        if not self.apim_auth_enabled:
             return
-        configured_keys = bool(self.mcp_jwt_jwks_uri) + bool(self.mcp_jwt_public_key)
-        if configured_keys != 1:
-            raise ValueError(
-                "When MCP_AUTH_ENABLED=true, configure exactly one of MCP_JWT_JWKS_URI "
-                "or MCP_JWT_PUBLIC_KEY"
-            )
-        if not self.mcp_jwt_issuer or not self.mcp_jwt_audience:
-            raise ValueError(
-                "MCP_JWT_ISSUER and MCP_JWT_AUDIENCE are required when MCP auth is enabled"
-            )
+        if not self.apim_scope_claims or not self.apim_subject_claims:
+            raise ValueError("APIM scope and subject claim name lists must be non-empty")
         if not all(
             (
                 self.mcp_search_scope.strip(),
                 self.mcp_category_read_scope.strip(),
                 self.mcp_article_read_scope.strip(),
-                self.mcp_attachment_read_scope.strip(),
             )
         ):
             raise ValueError("Every MCP tool scope must be non-empty")
