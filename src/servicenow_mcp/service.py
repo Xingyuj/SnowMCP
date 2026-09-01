@@ -4,7 +4,12 @@ from .auth import AuthorizationContext
 from .clients import KnowledgeClient
 from .config import ServiceNowKnowledgeConfig
 from .errors import ErrorCode, KnowledgeMcpError
-from .models import KnowledgeArticle, KnowledgeAttachment, KnowledgeSearchResponse
+from .models import (
+    KnowledgeArticle,
+    KnowledgeAttachment,
+    KnowledgeCategoriesResponse,
+    KnowledgeSearchResponse,
+)
 
 _IDENTIFIER = re.compile(r"^[^\s/\\?#]{1,255}$")
 
@@ -39,6 +44,22 @@ class KnowledgeService:
             authorization,
         )
         return KnowledgeSearchResponse(query=query, total=len(results), results=results)
+
+    async def list_knowledge_categories(
+        self,
+        authorization: AuthorizationContext | None = None,
+    ) -> KnowledgeCategoriesResponse:
+        results = []
+        offset = 0
+        while True:
+            page = await self.client.get_categories(
+                self.config.category_page_size, offset, authorization
+            )
+            results.extend(page)
+            if len(page) < self.config.category_page_size:
+                break
+            offset += len(page)
+        return KnowledgeCategoriesResponse(total=len(results), results=results)
 
     async def get_knowledge_article(
         self, article_id: str, authorization: AuthorizationContext | None = None

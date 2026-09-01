@@ -19,6 +19,21 @@ class KnowledgeSearchResponse(BaseModel):
     results: list[KnowledgeSearchCandidate]
 
 
+class KnowledgeCategory(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str
+    label: str
+    value: str | None = None
+    parent_id: str | None = None
+    full_category: str | None = None
+    active: bool | None = None
+
+
+class KnowledgeCategoriesResponse(BaseModel):
+    total: int = Field(ge=0)
+    results: list[KnowledgeCategory]
+
+
 class KnowledgeArticle(BaseModel):
     model_config = ConfigDict(extra="ignore")
     id: str

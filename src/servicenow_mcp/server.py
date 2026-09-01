@@ -15,7 +15,12 @@ from .auth import (
 from .clients import ServiceNowKnowledgeClient
 from .config import ServiceNowKnowledgeConfig, get_config
 from .errors import KnowledgeMcpError
-from .models import KnowledgeArticle, KnowledgeAttachment, KnowledgeSearchResponse
+from .models import (
+    KnowledgeArticle,
+    KnowledgeAttachment,
+    KnowledgeCategoriesResponse,
+    KnowledgeSearchResponse,
+)
 from .service import KnowledgeService
 
 log = logging.getLogger("servicenow_knowledge_mcp")
@@ -110,6 +115,19 @@ def create_mcp(
     ) -> KnowledgeSearchResponse:
         try:
             return await resolve_service().search_knowledge(query, limit, knowledge_base, language)
+        except KnowledgeMcpError as exc:
+            raise ToolError(f"{exc.code}: {exc.message}") from None
+
+    @server.tool(
+        description=(
+            "Use this tool to list all accessible ServiceNow Knowledge categories and their hierarchy. "
+            "Results include category identifiers, labels, parent identifiers, and full paths."
+        ),
+        auth=scope_check(config.mcp_category_read_scope),
+    )
+    async def list_knowledge_categories() -> KnowledgeCategoriesResponse:
+        try:
+            return await resolve_service().list_knowledge_categories()
         except KnowledgeMcpError as exc:
             raise ToolError(f"{exc.code}: {exc.message}") from None
 

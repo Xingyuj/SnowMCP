@@ -11,7 +11,12 @@ import httpx
 from .auth import AuthorizationContext, ServiceNowAuthenticator
 from .config import ServiceNowKnowledgeConfig
 from .errors import ErrorCode, KnowledgeMcpError
-from .models import KnowledgeArticle, KnowledgeAttachment, KnowledgeSearchCandidate
+from .models import (
+    KnowledgeArticle,
+    KnowledgeAttachment,
+    KnowledgeCategory,
+    KnowledgeSearchCandidate,
+)
 from .tls import system_ssl_context
 
 
@@ -25,6 +30,14 @@ class KnowledgeClient(ABC):
         language: str | None,
         authorization: AuthorizationContext | None = None,
     ) -> list[KnowledgeSearchCandidate]: ...
+
+    @abstractmethod
+    async def get_categories(
+        self,
+        limit: int,
+        offset: int,
+        authorization: AuthorizationContext | None = None,
+    ) -> list[KnowledgeCategory]: ...
 
     @abstractmethod
     async def get_article(
@@ -178,6 +191,48 @@ class ServiceNowKnowledgeClient(KnowledgeClient):
             )
         return [self._map_candidate(item, rank) for rank, item in enumerate(result, start=1)]
 
+    async def get_categories(
+        self,
+        limit: int,
+        offset: int,
+        authorization: AuthorizationContext | None = None,
+    ) -> list[KnowledgeCategory]:
+        response = await self._request(
+            "GET",
+            self.config.servicenow_categories_api_path,
+            params={
+                "sysparm_fields": ",".join(self.config.category_fields),
+                "sysparm_limit": limit,
+                "sysparm_offset": offset,
+                "sysparm_query": "ORDERBYfull_category",
+            },
+            authorization=authorization,
+        )
+        self._raise_for_status(response, "Knowledge categories")
+        result = self._json_result(response)
+        if not isinstance(result, list) or not all(isinstance(item, dict) for item in result):
+            raise KnowledgeMcpError(
+                ErrorCode.UPSTREAM_ERROR, "ServiceNow returned invalid knowledge categories"
+            )
+        return [self._map_category(item) for item in result]
+
+    @staticmethod
+    def _map_category(raw: Mapping[str, Any]) -> KnowledgeCategory:
+        identifier = raw.get("sys_id") or raw.get("id")
+        label = raw.get("label") or raw.get("name")
+        if not identifier or not label:
+            raise KnowledgeMcpError(
+                ErrorCode.UPSTREAM_ERROR, "Knowledge category omitted required fields"
+            )
+        return KnowledgeCategory(
+            id=str(identifier),
+            label=str(label),
+            value=_optional_string(raw.get("value")),
+            parent_id=_reference_value(raw.get("parent_id") or raw.get("parent")),
+            full_category=_optional_string(raw.get("full_category")),
+            active=_optional_bool(raw.get("active")),
+        )
+
     @staticmethod
     def _map_candidate(raw: Mapping[str, Any], rank: int) -> KnowledgeSearchCandidate:
         identifier = raw.get("sys_id") or raw.get("id")
@@ -324,6 +379,25 @@ def _display_value(value: Any) -> str | None:
     if isinstance(value, dict):
         return _optional_string(value.get("display_value") or value.get("value"))
     return _optional_string(value)
+
+
+def _reference_value(value: Any) -> str | None:
+    if isinstance(value, dict):
+        return _optional_string(value.get("value") or value.get("sys_id"))
+    return _optional_string(value)
+
+
+def _optional_bool(value: Any) -> bool | None:
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return value
+    normalized = str(value).strip().lower()
+    if normalized in {"true", "1", "yes"}:
+        return True
+    if normalized in {"false", "0", "no"}:
+        return False
+    return None
 
 
 def _filename(content_disposition: str | None) -> str | None:

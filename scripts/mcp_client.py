@@ -137,6 +137,7 @@ def _parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     subparsers.add_parser("list", help="List tools exposed by the MCP server")
+    subparsers.add_parser("categories", help="Call list_knowledge_categories")
 
     search = subparsers.add_parser("search", help="Call search_knowledge")
     search.add_argument("query")
@@ -163,7 +164,9 @@ async def _run(args: argparse.Namespace) -> None:
                 print(f"{tool['name']}: {tool.get('description', '')}")
             return
 
-        if args.command == "search":
+        if args.command == "categories":
+            result = await client.call_tool("list_knowledge_categories", {})
+        elif args.command == "search":
             arguments = {
                 key: value
                 for key, value in {

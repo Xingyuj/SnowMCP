@@ -10,11 +10,12 @@ The tool-to-scope mapping is:
 | Tool | Default required scope |
 | --- | --- |
 | `search_knowledge` | `knowledge.search` |
+| `list_knowledge_categories` | `knowledge.category.read` |
 | `get_knowledge_article` | `knowledge.article.read` |
 | `get_knowledge_attachment` | `knowledge.attachment.read` |
 
-The names can be changed with `MCP_SEARCH_SCOPE`, `MCP_ARTICLE_READ_SCOPE`, and
-`MCP_ATTACHMENT_READ_SCOPE`. When `MCP_AUTH_ENABLED=false`, inbound authentication and tool
+The names can be changed with `MCP_SEARCH_SCOPE`, `MCP_CATEGORY_READ_SCOPE`,
+`MCP_ARTICLE_READ_SCOPE`, and `MCP_ATTACHMENT_READ_SCOPE`. When `MCP_AUTH_ENABLED=false`, inbound authentication and tool
 scope checks are intentionally disabled for local backward compatibility. Deployed HTTP
 environments should enable authentication.
 
@@ -50,12 +51,15 @@ export MCP_JWT_ALGORITHM=HS256
 SEARCH_TOKEN="$(.venv/bin/python scripts/generate_test_jwt.py \
   --secret "$MCP_JWT_PUBLIC_KEY" knowledge.search)"
 
+CATEGORY_TOKEN="$(.venv/bin/python scripts/generate_test_jwt.py \
+  --secret "$MCP_JWT_PUBLIC_KEY" knowledge.category.read)"
+
 ARTICLE_TOKEN="$(.venv/bin/python scripts/generate_test_jwt.py \
   --secret "$MCP_JWT_PUBLIC_KEY" knowledge.article.read)"
 
 ALL_TOKEN="$(.venv/bin/python scripts/generate_test_jwt.py \
   --secret "$MCP_JWT_PUBLIC_KEY" \
-  knowledge.search knowledge.article.read knowledge.attachment.read)"
+  knowledge.search knowledge.category.read knowledge.article.read knowledge.attachment.read)"
 ```
 
 Start the server in another terminal with the same exported configuration:
@@ -76,14 +80,17 @@ MCP_ACCESS_TOKEN="$ALL_TOKEN" .venv/bin/python scripts/mcp_client.py list
 Expected tool visibility:
 
 - `SEARCH_TOKEN` lists only `search_knowledge`;
+- `CATEGORY_TOKEN` lists only `list_knowledge_categories`;
 - `ARTICLE_TOKEN` lists only `get_knowledge_article`;
-- `ALL_TOKEN` lists all three tools.
+- `ALL_TOKEN` lists all four tools.
 
 Example calls:
 
 ```bash
 MCP_ACCESS_TOKEN="$SEARCH_TOKEN" .venv/bin/python scripts/mcp_client.py \
   search "remote access" --limit 5
+
+MCP_ACCESS_TOKEN="$CATEGORY_TOKEN" .venv/bin/python scripts/mcp_client.py categories
 
 MCP_ACCESS_TOKEN="$ARTICLE_TOKEN" .venv/bin/python scripts/mcp_client.py \
   article ARTICLE_SYS_ID

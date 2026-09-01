@@ -71,6 +71,43 @@ async def test_search_empty_result():
 
 
 @pytest.mark.asyncio
+async def test_get_categories_maps_hierarchy_and_pagination():
+    async def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/api/now/table/kb_category"
+        assert request.url.params["sysparm_limit"] == "2"
+        assert request.url.params["sysparm_offset"] == "4"
+        assert request.url.params["sysparm_query"] == "ORDERBYfull_category"
+        assert "label" in request.url.params["sysparm_fields"]
+        return httpx.Response(
+            200,
+            json={
+                "result": [
+                    {
+                        "sys_id": "category-1",
+                        "label": "VPN",
+                        "value": "vpn",
+                        "parent_id": {"value": "category-parent", "display_value": "Network"},
+                        "full_category": "IT > Network > VPN",
+                        "active": "true",
+                    }
+                ]
+            },
+        )
+
+    categories = await client(handler).get_categories(2, 4)
+    assert categories[0].label == "VPN"
+    assert categories[0].parent_id == "category-parent"
+    assert categories[0].active is True
+
+
+@pytest.mark.asyncio
+async def test_categories_reject_malformed_response():
+    with pytest.raises(KnowledgeMcpError) as exc:
+        await client(lambda _: httpx.Response(200, json={"result": {}})).get_categories(10, 0)
+    assert exc.value.code == ErrorCode.UPSTREAM_ERROR
+
+
+@pytest.mark.asyncio
 async def test_get_article_maps_content_and_status_metadata():
     raw = {
         "sys_id": "article-1",

@@ -6,13 +6,19 @@ from servicenow_mcp.auth import AuthorizationContext
 from servicenow_mcp.clients import KnowledgeClient
 from servicenow_mcp.config import ServiceNowKnowledgeConfig
 from servicenow_mcp.errors import ErrorCode, KnowledgeMcpError
-from servicenow_mcp.models import KnowledgeArticle, KnowledgeAttachment, KnowledgeSearchCandidate
+from servicenow_mcp.models import (
+    KnowledgeArticle,
+    KnowledgeAttachment,
+    KnowledgeCategory,
+    KnowledgeSearchCandidate,
+)
 from servicenow_mcp.service import KnowledgeService
 
 
 class RecordingClient(KnowledgeClient):
     def __init__(self) -> None:
         self.search_args: tuple[Any, ...] | None = None
+        self.category_calls: list[tuple[int, int, AuthorizationContext | None]] = []
 
     async def search(
         self,
@@ -24,6 +30,22 @@ class RecordingClient(KnowledgeClient):
     ) -> list[KnowledgeSearchCandidate]:
         self.search_args = (query, limit, knowledge_base, language, authorization)
         return [KnowledgeSearchCandidate(id="1", title="Candidate", rank=1)]
+
+    async def get_categories(
+        self,
+        limit: int,
+        offset: int,
+        authorization: AuthorizationContext | None = None,
+    ) -> list[KnowledgeCategory]:
+        self.category_calls.append((limit, offset, authorization))
+        if offset == 0:
+            return [
+                KnowledgeCategory(id=str(index), label=f"Category {index}")
+                for index in range(limit)
+            ]
+        if offset == limit:
+            return [KnowledgeCategory(id="last", label="Last category")]
+        return []
 
     async def get_article(
         self, article_id: str, authorization: AuthorizationContext | None = None
@@ -81,6 +103,20 @@ async def test_search_validation(query: str, limit: int | None):
     with pytest.raises(KnowledgeMcpError) as exc:
         await target.search_knowledge(query, limit)
     assert exc.value.code == ErrorCode.INVALID_REQUEST
+
+
+@pytest.mark.asyncio
+async def test_categories_are_automatically_paginated():
+    target, client = service()
+    target.config.category_page_size = 2
+    result = await target.list_knowledge_categories()
+    assert result.total == 3
+    assert [item.label for item in result.results] == [
+        "Category 0",
+        "Category 1",
+        "Last category",
+    ]
+    assert [call[:2] for call in client.category_calls] == [(2, 0), (2, 2)]
 
 
 @pytest.mark.asyncio

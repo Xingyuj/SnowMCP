@@ -267,8 +267,16 @@ Expected tools:
 
 ```text
 search_knowledge
+list_knowledge_categories
 get_knowledge_article
 get_knowledge_attachment
+```
+
+List every Knowledge category visible to the configured ServiceNow identity (the server
+automatically follows Table API pagination):
+
+```bash
+.venv/bin/python scripts/mcp_client.py categories
 ```
 
 ## 7. Search for Knowledge Articles

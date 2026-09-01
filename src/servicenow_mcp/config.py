@@ -10,6 +10,7 @@ class ServiceNowKnowledgeConfig(BaseSettings):
 
     servicenow_base_url: str = ""
     servicenow_knowledge_api_path: str = "api/sn_km_api/knowledge/articles"
+    servicenow_categories_api_path: str = "api/now/table/kb_category"
     servicenow_access_token: SecretStr | None = Field(default=None, repr=False)
     servicenow_client_id: str | None = None
     servicenow_client_secret: SecretStr | None = Field(default=None, repr=False)
@@ -22,6 +23,7 @@ class ServiceNowKnowledgeConfig(BaseSettings):
     mcp_jwt_audience: str | None = None
     mcp_jwt_algorithm: str = "RS256"
     mcp_search_scope: str = "knowledge.search"
+    mcp_category_read_scope: str = "knowledge.category.read"
     mcp_article_read_scope: str = "knowledge.article.read"
     mcp_attachment_read_scope: str = "knowledge.attachment.read"
     servicenow_api_version: str | None = None
@@ -34,9 +36,11 @@ class ServiceNowKnowledgeConfig(BaseSettings):
         "sys_id,number,short_description,text,kb_knowledge_base,kb_category,workflow_state,"
         "published,valid_to,sys_updated_on"
     )
+    servicenow_category_fields: str = "sys_id,label,value,parent_id,full_category,active"
     request_timeout_seconds: float = Field(default=10, gt=0, le=120)
     default_search_limit: int = Field(default=5, ge=1)
     max_search_limit: int = Field(default=20, ge=1)
+    category_page_size: int = Field(default=100, ge=1, le=500)
     max_article_content_chars: int = Field(default=100_000, ge=100)
     max_attachment_bytes: int = Field(default=5_000_000, ge=1)
     transient_retry_attempts: int = Field(default=2, ge=0, le=5)
@@ -61,6 +65,12 @@ class ServiceNowKnowledgeConfig(BaseSettings):
     def article_fields(self) -> tuple[str, ...]:
         return tuple(
             field.strip() for field in self.servicenow_article_fields.split(",") if field.strip()
+        )
+
+    @property
+    def category_fields(self) -> tuple[str, ...]:
+        return tuple(
+            field.strip() for field in self.servicenow_category_fields.split(",") if field.strip()
         )
 
     def validate_runtime(self) -> None:
@@ -93,6 +103,7 @@ class ServiceNowKnowledgeConfig(BaseSettings):
         if not all(
             (
                 self.mcp_search_scope.strip(),
+                self.mcp_category_read_scope.strip(),
                 self.mcp_article_read_scope.strip(),
                 self.mcp_attachment_read_scope.strip(),
             )

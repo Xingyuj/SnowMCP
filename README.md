@@ -24,6 +24,9 @@ The client centralizes authentication headers, endpoint construction, field sele
 search_knowledge
     → GET /knowledge/articles
 
+list_knowledge_categories
+    → GET /api/now/table/kb_category (automatically paginated)
+
 get_knowledge_article
     → GET /knowledge/articles/{id}
 
@@ -31,7 +34,7 @@ get_knowledge_attachment
     → GET /knowledge/articles/{article_sys_id}/attachments/{attachment_sys_id}
 ```
 
-`search_knowledge` preserves ServiceNow result ordering and returns compact candidates. It does not claim semantic, vector, AI, or full-text behavior. `get_knowledge_article` returns the selected canonical article and useful validity metadata. `get_knowledge_attachment` returns bounded binary data as base64 because structured MCP output is JSON-compatible; callers must decode it, and no parsing or OCR is performed.
+`search_knowledge` preserves ServiceNow result ordering and returns compact candidates. It does not claim semantic, vector, AI, or full-text behavior. `list_knowledge_categories` automatically paginates the `kb_category` table and returns all categories visible to the ServiceNow integration identity. `get_knowledge_article` returns the selected canonical article and useful validity metadata. `get_knowledge_attachment` returns bounded binary data as base64 because structured MCP output is JSON-compatible; callers must decode it, and no parsing or OCR is performed.
 
 ## Development
 
@@ -56,13 +59,32 @@ docker build -t servicenow-knowledge-mcp .
 docker run --env-file .env -p 8080:8080 servicenow-knowledge-mcp
 ```
 
+Local HTTP client (run the server first):
+
+```bash
+python scripts/mcp_client.py list
+python scripts/mcp_client.py categories
+python scripts/mcp_client.py search "remote access" --limit 5
+python scripts/mcp_client.py article ARTICLE_ID
+python scripts/mcp_client.py attachment ARTICLE_ID ATTACHMENT_ID --output attachment.bin
+```
+
+The client uses HTTP/JSON-RPC directly and does not require the `fastmcp` CLI.
+See [docs/mcp-client-cheatsheet.md](docs/mcp-client-cheatsheet.md) for copy-ready commands,
+examples, and troubleshooting.
+
 ## Configuration
 
-All settings are shown in [.env.example](.env.example). `SERVICENOW_BASE_URL` is required at runtime. Authentication can use a static `SERVICENOW_ACCESS_TOKEN`, or `SERVICENOW_CLIENT_ID` and `SERVICENOW_CLIENT_SECRET` to obtain and cache a token from `SERVICENOW_OAUTH_TOKEN_PATH`. A static access token takes precedence. Search and article field selections are centralized in `SERVICENOW_SEARCH_FIELDS` and `SERVICENOW_ARTICLE_FIELDS` so verified standard or custom fields can be adopted without modifying the client.
+All settings are shown in [.env.example](.env.example). `SERVICENOW_BASE_URL` is required at runtime. Authentication can use a static `SERVICENOW_ACCESS_TOKEN`, or `SERVICENOW_CLIENT_ID` and `SERVICENOW_CLIENT_SECRET` to obtain and cache a token from `SERVICENOW_OAUTH_TOKEN_PATH`. A static access token takes precedence. Search, article, and category field selections are centralized in `SERVICENOW_SEARCH_FIELDS`, `SERVICENOW_ARTICLE_FIELDS`, and `SERVICENOW_CATEGORY_FIELDS` so verified standard or custom fields can be adopted without modifying the client. The category Table API path and automatic pagination page size can be configured with `SERVICENOW_CATEGORIES_API_PATH` and `CATEGORY_PAGE_SIZE`.
 
 The default API path and query parameter names are implementation assumptions that must be checked against the selected ServiceNow Knowledge Management API version. Search can be scoped with configured or per-tool Knowledge Base and language values. The requested result limit, article content length, attachment bytes, timeout, and transient retries are bounded.
 
 ## Authorization boundary
+
+Inbound MCP bearer tokens can be verified as JWTs using a JWKS endpoint or configured public key.
+When enabled, every tool has its own required scope. See
+[MCP scope authorization and local testing](docs/mcp-scope-testing.md) for the scope mapping,
+configuration, test-token generation, and client commands.
 
 An integration identity does not by itself prove that an end user's Knowledge permissions are enforced. The authenticator accepts an internal authorization context so a confirmed delegated mechanism can be added without redesigning the client, but the MCP tools do not invent or accept a delegated credential today.
 
