@@ -1,105 +1,238 @@
-# ServiceNow Knowledge MCP
+<div align="center">
 
-A deterministic, read-only FastMCP integration for ServiceNow Knowledge retrieval. It performs no answer generation, summarization, semantic reranking, vector search, or document parsing.
+# ServiceNow Knowledge MCP Server
 
-## Architecture
+![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)
+![FastMCP 3.x](https://img.shields.io/badge/FastMCP-3.x-009688)
+![Tools](https://img.shields.io/badge/Tools-3-00A98F)
+![Access](https://img.shields.io/badge/ServiceNow-read--only-6C47FF)
 
-```text
-AI platform / MCP client
-        ↓
-FastMCP server
-        ↓
-KnowledgeService
-        ↓
-ServiceNowKnowledgeClient
-        ↓
-ServiceNow Knowledge Management REST API
-```
+Connect AI assistants to authoritative ServiceNow Knowledge content. Three focused, read-only tools
+for searching articles, browsing categories, and retrieving canonical content—available to any MCP
+client over stdio or Streamable HTTP.
 
-The client centralizes authentication headers, endpoint construction, field selection, bounded transient retries, timeout/error mapping, JSON normalization, and binary attachment limits. HTTPS verification uses the operating system trust store so enterprise-managed root certificates are honored. Credentials, authorization headers, article content, and attachment bodies are not logged.
+</div>
 
-## Tool mapping
+---
 
-```text
-search_knowledge
-    → GET /knowledge/articles
+`Knowledge API` · `Category hierarchy` · `OAuth client credentials` · `JWT scope enforcement` · `Streamable HTTP` · `stdio`
 
-list_knowledge_categories
-    → GET /api/now/table/kb_category (automatically paginated)
+## What this does
 
-get_knowledge_article
-    → GET /knowledge/articles/{id}
+This server gives MCP-compatible AI clients a narrow retrieval interface to ServiceNow Knowledge.
+It is designed for grounding an assistant with published enterprise content without granting generic
+table access or mutation capabilities.
 
-get_knowledge_attachment
-    → GET /knowledge/articles/{article_sys_id}/attachments/{attachment_sys_id}
-```
+- **Deterministic and read-only:** no create, update, or delete operations.
+- **Retrieval only:** no answer generation, summarization, semantic reranking, vector search, OCR,
+  or document parsing.
+- **Enterprise-friendly TLS:** uses the operating-system trust store, including managed corporate
+  root certificates.
+- **Bounded responses:** limits search results, article content, timeouts, and retries.
+- **Credential-safe logging:** credentials, authorization headers, and article bodies are not logged.
+- **Optional MCP authorization:** validates inbound JWTs and enforces a separate scope per tool.
 
-`search_knowledge` preserves ServiceNow result ordering and returns compact candidates. It does not claim semantic, vector, AI, or full-text behavior. `list_knowledge_categories` automatically paginates the `kb_category` table and returns all categories visible to the ServiceNow integration identity. `get_knowledge_article` returns the selected canonical article and useful validity metadata. `get_knowledge_attachment` returns bounded binary data as base64 because structured MCP output is JSON-compatible; callers must decode it, and no parsing or OCR is performed.
+## Quick start
 
-## Development
+### 1. Install from source
 
 ```bash
-python -m venv .venv
+git clone https://github.com/Xingyuj/SnowMCP.git
+cd SnowMCP
+python3 -m venv .venv
 source .venv/bin/activate
-pip install -e '.[dev]'
+pip install -e .
+```
+
+Python 3.11 or newer is required.
+
+### 2. Configure ServiceNow
+
+```bash
 cp .env.example .env
-pytest
-ruff format --check src tests
-ruff check src tests
-mypy src
+```
+
+Set the ServiceNow instance URL and choose one outbound authentication method:
+
+```dotenv
+SERVICENOW_BASE_URL=https://your-instance.service-now.com
+
+# Option A: static bearer token (takes precedence when configured)
+SERVICENOW_ACCESS_TOKEN=
+
+# Option B: OAuth client credentials
+SERVICENOW_CLIENT_ID=your-client-id
+SERVICENOW_CLIENT_SECRET=your-client-secret
+SERVICENOW_OAUTH_TOKEN_PATH=oauth_token.do
+SERVICENOW_OAUTH_SCOPE=
+```
+
+Do not commit `.env` or expose access tokens and client secrets in logs or screenshots.
+
+### 3. Start the server
+
+Streamable HTTP is the default transport:
+
+```bash
 servicenow-knowledge-mcp
 ```
 
-The default network transport is stateless Streamable HTTP at `http://localhost:8080/mcp`. Set `TRANSPORT=stdio` for a locally spawned MCP client.
+The MCP endpoint is available at `http://127.0.0.1:8080/mcp`.
 
-Container build:
+For a client that launches the server as a subprocess, use stdio:
+
+```bash
+TRANSPORT=stdio servicenow-knowledge-mcp
+```
+
+### 4. Verify
+
+With the HTTP server running in another terminal:
+
+```bash
+python scripts/mcp_client.py list
+python scripts/mcp_client.py categories
+python scripts/mcp_client.py search "remote access" --limit 5
+```
+
+## Configure an MCP client
+
+For clients that accept an MCP server JSON configuration, use the virtual environment executable
+and provide credentials through the client environment. Replace `/absolute/path/to/SnowMCP` with
+the cloned repository path.
+
+```json
+{
+  "mcpServers": {
+    "servicenow-knowledge": {
+      "command": "/absolute/path/to/SnowMCP/.venv/bin/servicenow-knowledge-mcp",
+      "env": {
+        "TRANSPORT": "stdio",
+        "SERVICENOW_BASE_URL": "https://your-instance.service-now.com",
+        "SERVICENOW_CLIENT_ID": "your-client-id",
+        "SERVICENOW_CLIENT_SECRET": "your-client-secret",
+        "SERVICENOW_OAUTH_TOKEN_PATH": "oauth_token.do"
+      }
+    }
+  }
+}
+```
+
+The same structure is commonly accepted by Claude Desktop, Cursor, and VS Code, although the
+configuration file location differs by client. If the client supports remote MCP servers, point it
+to the deployed `/mcp` endpoint instead.
+
+## Available tools
+
+| Tool | Description | Default scope when MCP auth is enabled |
+| --- | --- | --- |
+| `search_knowledge` | Search using a natural-language query or keywords; returns ordered candidates and snippets | `knowledge.search` |
+| `list_knowledge_categories` | List every accessible category, including parent IDs and full hierarchy paths | `knowledge.category.read` |
+| `get_knowledge_article` | Retrieve canonical article content and publication/validity metadata | `knowledge.article.read` |
+
+Typical retrieval flow:
+
+```text
+search_knowledge
+      │
+      ├── get_knowledge_article
+      │
+      └── list_knowledge_categories (for discovery or filtering context)
+```
+
+`search_knowledge` preserves the order returned by ServiceNow and does not claim semantic, vector,
+AI, or UI-equivalent ranking behavior.
+
+## Architecture
+
+```mermaid
+flowchart LR
+    Client[AI assistant / MCP client]
+    Server[FastMCP server]
+    Service[KnowledgeService]
+    API[ServiceNowKnowledgeClient]
+    SN[ServiceNow Knowledge APIs]
+
+    Client -->|stdio or Streamable HTTP| Server
+    Server --> Service
+    Service --> API
+    API -->|OAuth bearer token / HTTPS| SN
+```
+
+The client layer centralizes authentication headers, endpoint construction, field selection,
+automatic category pagination, bounded transient retries, error mapping, JSON normalization, and
+response limits.
+
+## Configuration
+
+All supported settings and defaults are documented in [`.env.example`](.env.example). The most
+important groups are:
+
+| Area | Settings |
+| --- | --- |
+| ServiceNow connection | `SERVICENOW_BASE_URL`, `SERVICENOW_KNOWLEDGE_API_PATH`, `SERVICENOW_CATEGORIES_API_PATH`, `SERVICENOW_API_VERSION` |
+| Outbound authentication | `SERVICENOW_ACCESS_TOKEN`, `SERVICENOW_CLIENT_ID`, `SERVICENOW_CLIENT_SECRET`, `SERVICENOW_OAUTH_TOKEN_PATH`, `SERVICENOW_OAUTH_SCOPE` |
+| Retrieval scope | `SERVICENOW_KNOWLEDGE_BASE`, `SERVICENOW_LANGUAGE`, `SERVICENOW_SEARCH_FIELDS`, `SERVICENOW_ARTICLE_FIELDS`, `SERVICENOW_CATEGORY_FIELDS` |
+| Response bounds | `DEFAULT_SEARCH_LIMIT`, `MAX_SEARCH_LIMIT`, `CATEGORY_PAGE_SIZE`, `MAX_ARTICLE_CONTENT_CHARS` |
+| Reliability | `REQUEST_TIMEOUT_SECONDS`, `TRANSIENT_RETRY_ATTEMPTS`, `RETRY_BACKOFF_SECONDS`, `LOG_LEVEL` |
+| Server | `TRANSPORT`, `HOST`, `PORT` |
+| Inbound MCP auth | `MCP_AUTH_ENABLED`, `MCP_JWT_JWKS_URI` or `MCP_JWT_PUBLIC_KEY`, issuer, audience, algorithm, and per-tool scopes |
+
+A configured static ServiceNow access token takes precedence over OAuth client credentials. When
+client credentials are used, the server obtains and caches the access token automatically.
+
+The default Knowledge API path, field names, and query parameters are implementation assumptions.
+Validate them against the API version and customizations of the target ServiceNow instance before
+production deployment.
+
+## Authentication and authorization boundary
+
+There are two independent authentication hops:
+
+1. **MCP client → this server:** optional inbound JWT verification using a JWKS endpoint or public
+   key, with per-tool scope checks.
+2. **This server → ServiceNow:** a static bearer token or OAuth client credentials for the configured
+   ServiceNow integration identity.
+
+An integration identity does not prove that each end user's Knowledge ACLs, User Criteria, roles,
+group membership, or article restrictions are enforced. The current tools do not accept or invent a
+delegated end-user credential. Production use must wait until the applicable entitlement model is
+confirmed and tested for the target instance.
+
+See [MCP scope authorization and local testing](docs/mcp-scope-testing.md) for JWT configuration,
+scope mapping, test-token generation, and copy-ready calls.
+
+## Docker
 
 ```bash
 docker build -t servicenow-knowledge-mcp .
 docker run --env-file .env -p 8080:8080 servicenow-knowledge-mcp
 ```
 
-Local HTTP client (run the server first):
+The container runs as a non-root user and exposes the HTTP server on port `8080` by default.
+
+## Local client examples
 
 ```bash
 python scripts/mcp_client.py list
 python scripts/mcp_client.py categories
 python scripts/mcp_client.py search "remote access" --limit 5
 python scripts/mcp_client.py article ARTICLE_ID
-python scripts/mcp_client.py attachment ARTICLE_ID ATTACHMENT_ID --output attachment.bin
 ```
 
-The client uses HTTP/JSON-RPC directly and does not require the `fastmcp` CLI.
-See [docs/mcp-client-cheatsheet.md](docs/mcp-client-cheatsheet.md) for copy-ready commands,
-examples, and troubleshooting.
+The helper uses HTTP/JSON-RPC directly and does not require the FastMCP CLI. See the
+[MCP client cheatsheet](docs/mcp-client-cheatsheet.md) for authentication, diagnostics,
+copy-ready commands, and troubleshooting.
 
-## Configuration
+## Development
 
-All settings are shown in [.env.example](.env.example). `SERVICENOW_BASE_URL` is required at runtime. Authentication can use a static `SERVICENOW_ACCESS_TOKEN`, or `SERVICENOW_CLIENT_ID` and `SERVICENOW_CLIENT_SECRET` to obtain and cache a token from `SERVICENOW_OAUTH_TOKEN_PATH`. A static access token takes precedence. Search, article, and category field selections are centralized in `SERVICENOW_SEARCH_FIELDS`, `SERVICENOW_ARTICLE_FIELDS`, and `SERVICENOW_CATEGORY_FIELDS` so verified standard or custom fields can be adopted without modifying the client. The category Table API path and automatic pagination page size can be configured with `SERVICENOW_CATEGORIES_API_PATH` and `CATEGORY_PAGE_SIZE`.
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e '.[dev]'
 
-The default API path and query parameter names are implementation assumptions that must be checked against the selected ServiceNow Knowledge Management API version. Search can be scoped with configured or per-tool Knowledge Base and language values. The requested result limit, article content length, attachment bytes, timeout, and transient retries are bounded.
-
-## Authorization boundary
-
-Inbound MCP bearer tokens can be verified as JWTs using a JWKS endpoint or configured public key.
-When enabled, every tool has its own required scope. See
-[MCP scope authorization and local testing](docs/mcp-scope-testing.md) for the scope mapping,
-configuration, test-token generation, and client commands.
-
-An integration identity does not by itself prove that an end user's Knowledge permissions are enforced. The authenticator accepts an internal authorization context so a confirmed delegated mechanism can be added without redesigning the client, but the MCP tools do not invent or accept a delegated credential today.
-
-Open security question: when the MCP calls ServiceNow using an integration identity, are Knowledge Base ACLs, User Criteria, roles, group membership, and article-level restrictions evaluated only against the integration identity, or can the end-user authorization context be propagated and enforced?
-
-Production use must not proceed until the applicable entitlement contract is confirmed and tested.
-
-## Assumptions and open questions
-
-The traceable Epic, Stories, Tasks, assumptions, and unresolved integration questions are maintained in [docs/implementation-plan.md](docs/implementation-plan.md). Important unresolved items include:
-
-1. What search/indexing/ranking capability backs the `query` parameter, and does it match the Knowledge UI?
-2. Which Knowledge Bases, languages, and publication states are in scope?
-3. How will end-user authorization be enforced when an integration identity is used?
-4. Which standard or custom field contains canonical article content?
-5. Which fields are required for audience, validity, publication, citation, and freshness?
-6. What authentication mechanism, API version, rate limits, and throughput apply?
-7. Which non-production environment and representative retrieval-quality fixtures are available?
+pytest
+ruff format --check src tests
+ruff check src tests
+mypy src
+```
