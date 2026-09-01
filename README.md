@@ -141,7 +141,6 @@ flowchart LR
     Entra[Microsoft Entra ID]
     Service[KnowledgeService]
     API[ServiceNow Knowledge API Client]
-    SN[ServiceNow Knowledge APIs]
 
     subgraph APIM[Azure API Management]
         direction TB
@@ -169,6 +168,22 @@ flowchart LR
         Tools --> Resolver
     end
 
+    subgraph DownstreamAuth[ServiceNow downstream authentication - choose one]
+        direction TB
+        ClientCredentials["Option 1 - current<br/>OAuth client credentials<br/>integration identity"]
+        OBO["Option 2 - conditional<br/>Entra OBO token exchange<br/>delegated user identity"]
+    end
+
+    subgraph ServiceNow[ServiceNow]
+        direction TB
+        TokenEndpoint[OAuth token endpoint]
+        OIDC["Third-party OIDC token validation<br/>issuer, JWKS, audience, and user mapping"]
+        SN[Knowledge APIs]
+
+        TokenEndpoint -->|ServiceNow-issued app token| SN
+        OIDC -->|mapped end-user identity| SN
+    end
+
     Client -->|request access token| Entra
     Entra -->|signed access token| Client
     Client -->|Bearer token| Gateway
@@ -177,7 +192,12 @@ flowchart LR
     Resolver -->|resolve KnowledgeService| Service
     Service --> API
     Lifecycle -.->|shutdown cleanup| API
-    API -->|OAuth bearer token / HTTPS| SN
+    API --> ClientCredentials
+    ClientCredentials -->|client ID and secret / HTTPS| TokenEndpoint
+    API -.->|not implemented yet| OBO
+    OBO -->|Token A plus MCP app credential| Entra
+    Entra -->|Token B: aud = ServiceNow| OBO
+    OBO -->|delegated bearer token / HTTPS| OIDC
 ```
 
 The tool handlers call the service resolver rather than constructing dependencies for every
@@ -195,6 +215,8 @@ for local development.
 `KnowledgeService` owns request validation, configured limits, category pagination, and response
 construction. `ServiceNowKnowledgeApiClient` owns authentication headers, endpoint construction,
 field selection, TLS, bounded transient retries, upstream error mapping, and JSON normalization.
+The solid downstream path is implemented today. The dotted OBO path is a conditional design option,
+not current behavior.
 
 ## Configuration
 
@@ -227,18 +249,38 @@ There are three distinct security boundaries:
 2. **APIM → MCP server:** enforced network controls guarantee that only APIM can reach the backend.
    APIM forwards the validated bearer token, and the MCP server extracts `oid`/`sub` and
    `scp`/`scope`/`roles` without repeating signature validation.
-3. **This server → ServiceNow:** a static bearer token or OAuth client credentials for the configured
-   ServiceNow integration identity.
+3. **This server → ServiceNow:** choose either a ServiceNow integration identity or, only when the
+   target ServiceNow instance supports it, a delegated end-user identity.
 
 APIM must forward the original validated `Authorization: Bearer ...` header because the MCP server
 uses its claims for tool authorization. The APIM-only network restriction is a mandatory security
 control for this design; exposing the backend through another route would allow unvalidated claims
 to reach the MCP server.
 
-An integration identity does not prove that each end user's Knowledge ACLs, User Criteria, roles,
-group membership, or article restrictions are enforced. The current tools do not accept or invent a
-delegated end-user credential. Production use must wait until the applicable entitlement model is
-confirmed and tested for the target instance.
+### ServiceNow downstream identity options
+
+| Option | Flow | Authorization identity | Status and ServiceNow requirement |
+| --- | --- | --- | --- |
+| **1. Client credentials** | The MCP server calls the ServiceNow OAuth token endpoint with its client credentials, caches the returned access token, and uses it for Knowledge API calls. | A ServiceNow integration user/application. | Implemented. ServiceNow ACLs and User Criteria are evaluated for the integration identity, not the original MCP user. |
+| **2. Entra OBO** | The MCP server exchanges the incoming MCP access token (Token A) at Entra for a new delegated token whose audience is ServiceNow (Token B), then sends Token B to ServiceNow. | The mapped end user. | Not implemented. ServiceNow must accept the Entra-issued downstream token for inbound API calls, validate its issuer, JWKS, audience, expiry, and scopes, map its user claim to `sys_user`, and apply the required API access policy, ACLs, and User Criteria. |
+
+OBO does **not** mean forwarding Token A directly to ServiceNow. Token A is issued for the MCP API
+and must only be presented to that audience. The MCP server uses Token A as the assertion in the
+[Entra OBO exchange](https://learn.microsoft.com/en-us/entra/identity-platform/v2-oauth2-on-behalf-of-flow)
+and receives Token B for the ServiceNow audience.
+
+The ServiceNow configuration is more specific than merely enabling OpenID Connect for interactive
+SSO. The ServiceNow team must configure
+[inbound third-party OIDC token validation](https://www.servicenow.com/docs/r/platform-security/authentication/add-OIDC-entity.html)
+for the target Knowledge APIs and confirm that the instance/release accepts the Entra OBO
+**access token**. Current ServiceNow documentation describes third-party OIDC inbound API
+authentication, but its detailed setup primarily demonstrates an **ID token** in the
+`Authorization` header. Because Entra OBO returns an access token, compatibility must be proven with
+the target instance before selecting this option.
+
+Until that validation and the OBO code path are complete, this server uses the integration-identity
+path. A configured static ServiceNow bearer token remains available operationally, but it has the
+same authorization limitation: it does not preserve the original MCP user's identity.
 
 See [APIM claims authorization and local testing](docs/mcp-scope-testing.md) for the APIM contract,
 scope mapping, and copy-ready calls.
