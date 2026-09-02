@@ -136,14 +136,12 @@ AI, or UI-equivalent ranking behavior.
 ## Architecture
 
 ```mermaid
-flowchart LR
+flowchart TB
     Client[AI assistant / MCP client]
     Entra[Microsoft Entra ID]
-    Service[KnowledgeService]
-    API[ServiceNow Knowledge API Client]
 
     subgraph APIM[Azure API Management]
-        direction TB
+        direction LR
         Gateway[Streamable HTTP gateway]
         Validate[validate-azure-ad-token]
         Forward[Forward validated bearer token]
@@ -157,25 +155,29 @@ flowchart LR
         Transport[Streamable HTTP transport]
         Claims["Extract APIM-validated claims<br/>no JWT signature validation"]
         Scopes[Per-tool scope checks]
-
         Tools["Tool handlers<br/>search_knowledge<br/>list_knowledge_categories<br/>get_knowledge_article"]
         Resolver["Service resolver + shared state<br/>lazy initialization and reuse"]
+        Service[KnowledgeService]
+        API[ServiceNow Knowledge API Client]
         Lifecycle[FastMCP lifespan]
 
         Transport --> Claims
         Claims --> Scopes
         Scopes --> Tools
         Tools --> Resolver
+        Resolver -->|resolve| Service
+        Service --> API
+        Lifecycle -.->|shutdown cleanup| API
     end
 
     subgraph DownstreamAuth[ServiceNow downstream authentication - choose one]
-        direction TB
+        direction LR
         ClientCredentials["Option 1 - current<br/>OAuth client credentials<br/>integration identity"]
-        OBO["Option 2 - conditional<br/>Entra OBO token exchange<br/>delegated user identity"]
+        OBO["Option 2 - conditional<br/>Entra OBO exchange<br/>Token A → Entra → Token B<br/>delegated user identity"]
     end
 
     subgraph ServiceNow[ServiceNow]
-        direction TB
+        direction LR
         TokenEndpoint[OAuth token endpoint]
         OIDC["Third-party OIDC token validation<br/>issuer, JWKS, audience, and user mapping"]
         SN[Knowledge APIs]
@@ -189,14 +191,9 @@ flowchart LR
     Client -->|Bearer token| Gateway
     Entra -.->|issuer metadata and signing keys| Validate
     Forward -->|network-restricted backend route| Transport
-    Resolver -->|resolve KnowledgeService| Service
-    Service --> API
-    Lifecycle -.->|shutdown cleanup| API
     API --> ClientCredentials
     ClientCredentials -->|client ID and secret / HTTPS| TokenEndpoint
     API -.->|not implemented yet| OBO
-    OBO -->|Token A plus MCP app credential| Entra
-    Entra -->|Token B: aud = ServiceNow| OBO
     OBO -->|delegated bearer token / HTTPS| OIDC
 ```
 
