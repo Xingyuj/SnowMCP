@@ -1,5 +1,6 @@
 from .knowledge import (
     KnowledgeArticle,
+    KnowledgeAttachment,
     KnowledgeCategoriesResponse,
     KnowledgeCategory,
     KnowledgeSearchCandidate,
@@ -8,6 +9,7 @@ from .knowledge import (
 
 __all__ = [
     "KnowledgeArticle",
+    "KnowledgeAttachment",
     "KnowledgeCategoriesResponse",
     "KnowledgeCategory",
     "KnowledgeSearchCandidate",

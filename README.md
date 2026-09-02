@@ -4,12 +4,12 @@
 
 ![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)
 ![FastMCP 3.x](https://img.shields.io/badge/FastMCP-3.x-009688)
-![Tools](https://img.shields.io/badge/Tools-3-00A98F)
+![Tools](https://img.shields.io/badge/Tools-4-00A98F)
 ![Access](https://img.shields.io/badge/ServiceNow-read--only-6C47FF)
 
-Connect AI assistants to authoritative ServiceNow Knowledge content. Three focused, read-only tools
-for searching articles, browsing categories, and retrieving canonical content—available to any MCP
-client over Streamable HTTP.
+Connect AI assistants to authoritative ServiceNow Knowledge content. Four focused, read-only tools
+for searching articles, browsing categories, retrieving canonical content, and downloading bounded
+attachments—available to any MCP client over Streamable HTTP.
 
 </div>
 
@@ -28,7 +28,7 @@ table access or mutation capabilities.
   or document parsing.
 - **Enterprise-friendly TLS:** uses the operating-system trust store, including managed corporate
   root certificates.
-- **Bounded responses:** limits search results, article content, timeouts, and retries.
+- **Bounded responses:** limits search results, article content, attachment bytes, timeouts, and retries.
 - **Credential-safe logging:** credentials, authorization headers, and article bodies are not logged.
 - **APIM trust boundary:** APIM validates Entra ID tokens; the MCP server authenticates APIM,
   extracts the already-validated claims, and enforces a separate scope per tool.
@@ -119,6 +119,7 @@ the Entra ID access token to APIM.
 | `search_knowledge` | Search using a natural-language query or keywords; returns ordered candidates and snippets | `knowledge.search` |
 | `list_knowledge_categories` | List every accessible category, including parent IDs and full hierarchy paths | `knowledge.category.read` |
 | `get_knowledge_article` | Retrieve canonical article content and publication/validity metadata | `knowledge.article.read` |
+| `get_knowledge_attachment` | Retrieve one article attachment as bounded Base64 data without parsing it | `knowledge.attachment.read` |
 
 Typical retrieval flow:
 
@@ -126,6 +127,7 @@ Typical retrieval flow:
 search_knowledge
       │
       ├── get_knowledge_article
+      │         └── get_knowledge_attachment (when the selected article references one)
       │
       └── list_knowledge_categories (for discovery or filtering context)
 ```
@@ -155,7 +157,7 @@ flowchart TB
         Transport[Streamable HTTP transport]
         Claims["Extract APIM-validated claims<br/>no JWT signature validation"]
         Scopes[Per-tool scope checks]
-        Tools["Tool handlers<br/>search_knowledge<br/>list_knowledge_categories<br/>get_knowledge_article"]
+        Tools["Tool handlers<br/>search_knowledge<br/>list_knowledge_categories<br/>get_knowledge_article<br/>get_knowledge_attachment"]
         Resolver["Service resolver + shared state<br/>lazy initialization and reuse"]
         Service[KnowledgeService]
         API[ServiceNow Knowledge API Client]
@@ -225,7 +227,7 @@ important groups are:
 | ServiceNow connection | `SERVICENOW_BASE_URL`, `SERVICENOW_KNOWLEDGE_API_PATH`, `SERVICENOW_CATEGORIES_API_PATH`, `SERVICENOW_API_VERSION` |
 | Outbound authentication | `SERVICENOW_ACCESS_TOKEN`, `SERVICENOW_CLIENT_ID`, `SERVICENOW_CLIENT_SECRET`, `SERVICENOW_OAUTH_TOKEN_PATH`, `SERVICENOW_OAUTH_SCOPE` |
 | Retrieval scope | `SERVICENOW_KNOWLEDGE_BASE`, `SERVICENOW_LANGUAGE`, `SERVICENOW_SEARCH_FIELDS`, `SERVICENOW_ARTICLE_FIELDS`, `SERVICENOW_CATEGORY_FIELDS` |
-| Response bounds | `DEFAULT_SEARCH_LIMIT`, `MAX_SEARCH_LIMIT`, `CATEGORY_PAGE_SIZE`, `MAX_ARTICLE_CONTENT_CHARS` |
+| Response bounds | `DEFAULT_SEARCH_LIMIT`, `MAX_SEARCH_LIMIT`, `CATEGORY_PAGE_SIZE`, `MAX_ARTICLE_CONTENT_CHARS`, `MAX_ATTACHMENT_BYTES` |
 | Reliability | `REQUEST_TIMEOUT_SECONDS`, `TRANSIENT_RETRY_ATTEMPTS`, `RETRY_BACKOFF_SECONDS`, `LOG_LEVEL` |
 | Server | `HOST`, `PORT` |
 | APIM claims authorization | `APIM_AUTH_ENABLED`, `APIM_SCOPE_CLAIM_NAMES`, `APIM_SUBJECT_CLAIM_NAMES`, and per-tool scopes |
@@ -298,6 +300,7 @@ python scripts/mcp_client.py list
 python scripts/mcp_client.py categories
 python scripts/mcp_client.py search "remote access" --limit 5
 python scripts/mcp_client.py article ARTICLE_ID
+python scripts/mcp_client.py attachment ARTICLE_ID ATTACHMENT_ID --output attachment.bin
 ```
 
 The helper uses HTTP/JSON-RPC directly and does not require the FastMCP CLI. See the

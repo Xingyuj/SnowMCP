@@ -23,9 +23,10 @@ intentionally does not repeat cryptographic token validation.
 | `search_knowledge` | `knowledge.search` |
 | `list_knowledge_categories` | `knowledge.category.read` |
 | `get_knowledge_article` | `knowledge.article.read` |
+| `get_knowledge_attachment` | `knowledge.attachment.read` |
 
-The names can be changed with `MCP_SEARCH_SCOPE`, `MCP_CATEGORY_READ_SCOPE`, and
-`MCP_ARTICLE_READ_SCOPE`.
+The names can be changed with `MCP_SEARCH_SCOPE`, `MCP_CATEGORY_READ_SCOPE`,
+`MCP_ARTICLE_READ_SCOPE`, and `MCP_ATTACHMENT_READ_SCOPE`.
 
 The server reads subjects from `oid` and then `sub` by default. It combines scopes from `scp`,
 `scope`, and `roles`, supporting both delegated scopes and application roles. Override the claim
@@ -42,6 +43,7 @@ APIM_SUBJECT_CLAIM_NAMES=oid,sub
 MCP_SEARCH_SCOPE=knowledge.search
 MCP_CATEGORY_READ_SCOPE=knowledge.category.read
 MCP_ARTICLE_READ_SCOPE=knowledge.article.read
+MCP_ATTACHMENT_READ_SCOPE=knowledge.attachment.read
 ```
 
 APIM must preserve the user bearer token after validation so the MCP server can extract the
@@ -69,7 +71,7 @@ SEARCH_TOKEN="$(.venv/bin/python scripts/generate_test_jwt.py \
 
 ALL_TOKEN="$(.venv/bin/python scripts/generate_test_jwt.py \
   --secret "$LOCAL_JWT_SECRET" \
-  knowledge.search knowledge.category.read knowledge.article.read)"
+  knowledge.search knowledge.category.read knowledge.article.read knowledge.attachment.read)"
 ```
 
 Start the server in another terminal with the same APIM environment:
@@ -88,7 +90,7 @@ MCP_ACCESS_TOKEN="$SEARCH_TOKEN" \
 Expected tool visibility:
 
 - a token with `knowledge.search` lists only `search_knowledge`;
-- a token with all three scopes lists all three tools;
+- a token with all four scopes lists all four tools;
 - a token missing a tool's scope cannot list or call that tool.
 
 This local simulation does not establish the production APIM trust boundary. Production safety

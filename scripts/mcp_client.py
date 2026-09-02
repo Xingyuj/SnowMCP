@@ -2,9 +2,11 @@
 
 import argparse
 import asyncio
+import base64
 import json
 import os
 import sys
+from pathlib import Path
 from typing import Any, Self
 
 import httpx
@@ -151,6 +153,11 @@ def _parser() -> argparse.ArgumentParser:
     article = subparsers.add_parser("article", help="Call get_knowledge_article")
     article.add_argument("article_id")
 
+    attachment = subparsers.add_parser("attachment", help="Call get_knowledge_attachment")
+    attachment.add_argument("article_id")
+    attachment.add_argument("attachment_id")
+    attachment.add_argument("--output", type=Path, help="Decode and save the attachment body")
+
     return parser
 
 
@@ -181,6 +188,14 @@ async def _run(args: argparse.Namespace) -> None:
             result = await client.call_tool(
                 "get_knowledge_article", {"article_id": args.article_id}
             )
+        elif args.command == "attachment":
+            result = await client.call_tool(
+                "get_knowledge_attachment",
+                {
+                    "article_sys_id": args.article_id,
+                    "attachment_sys_id": args.attachment_id,
+                },
+            )
         else:
             raise AssertionError(f"Unhandled command: {args.command}")
 
@@ -197,6 +212,12 @@ async def _run(args: argparse.Namespace) -> None:
             raise RuntimeError("MCP tool call failed")
 
         output = _tool_output(result)
+        if args.command == "attachment" and args.output:
+            if not isinstance(output, dict) or not isinstance(output.get("content_base64"), str):
+                raise RuntimeError("Attachment result did not contain content_base64")
+            args.output.write_bytes(base64.b64decode(output["content_base64"], validate=True))
+            print(f"Saved {output.get('size_bytes', 0)} bytes to {args.output}")
+            return
         print(json.dumps(output, indent=2, ensure_ascii=False))
 
 

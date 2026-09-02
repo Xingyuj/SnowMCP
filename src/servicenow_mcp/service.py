@@ -6,6 +6,7 @@ from .config import ServiceNowKnowledgeConfig
 from .errors import ErrorCode, KnowledgeMcpError
 from .models import (
     KnowledgeArticle,
+    KnowledgeAttachment,
     KnowledgeCategoriesResponse,
     KnowledgeSearchResponse,
 )
@@ -65,6 +66,18 @@ class KnowledgeService:
     ) -> KnowledgeArticle:
         return await self.client.get_article(
             _validated_identifier(article_id, "article_id"), authorization
+        )
+
+    async def get_knowledge_attachment(
+        self,
+        article_sys_id: str,
+        attachment_sys_id: str,
+        authorization: AuthorizationContext | None = None,
+    ) -> KnowledgeAttachment:
+        return await self.client.get_attachment(
+            _validated_identifier(article_sys_id, "article_sys_id"),
+            _validated_identifier(attachment_sys_id, "attachment_sys_id"),
+            authorization,
         )
 
 

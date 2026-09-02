@@ -1,3 +1,5 @@
+import base64
+
 import httpx
 import pytest
 
@@ -135,6 +137,35 @@ async def test_get_article_accepts_missing_optional_fields():
 
 
 @pytest.mark.asyncio
+async def test_attachment_preserves_binary_metadata_and_empty_body():
+    binary = b"\x00\xffbinary"
+    attachment = await client(
+        lambda _: httpx.Response(
+            200,
+            content=binary,
+            headers={
+                "Content-Type": "application/octet-stream",
+                "Content-Disposition": 'attachment; filename="guide.bin"',
+            },
+        )
+    ).get_attachment("article-1", "attachment-1")
+    assert attachment.filename == "guide.bin"
+    assert attachment.content_type == "application/octet-stream"
+    assert base64.b64decode(attachment.content_base64) == binary
+    empty = await client(lambda _: httpx.Response(200, content=b"")).get_attachment("a", "b")
+    assert empty.size_bytes == 0
+
+
+@pytest.mark.asyncio
+async def test_attachment_size_limit():
+    with pytest.raises(KnowledgeMcpError) as exc:
+        await client(
+            lambda _: httpx.Response(200, content=b"12345"), max_attachment_bytes=4
+        ).get_attachment("a", "b")
+    assert exc.value.code == ErrorCode.PAYLOAD_TOO_LARGE
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("status", "code"),
     [
@@ -164,6 +195,18 @@ async def test_status_mapping(status: int, code: ErrorCode):
 async def test_search_status_mapping(status: int, code: ErrorCode):
     with pytest.raises(KnowledgeMcpError) as exc:
         await client(lambda _: httpx.Response(status)).search("query", 1, None, None)
+    assert exc.value.code == code
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("status", "code"), [(404, ErrorCode.NOT_FOUND), (403, ErrorCode.FORBIDDEN)]
+)
+async def test_attachment_status_mapping(status: int, code: ErrorCode):
+    with pytest.raises(KnowledgeMcpError) as exc:
+        await client(lambda _: httpx.Response(status)).get_attachment(
+            "article-1", "attachment-1"
+        )
     assert exc.value.code == code
 
 

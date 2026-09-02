@@ -1,6 +1,8 @@
 import asyncio
+import base64
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
+from email.message import Message
 from typing import Any
 from urllib.parse import quote
 
@@ -11,6 +13,7 @@ from .config import ServiceNowKnowledgeConfig
 from .errors import ErrorCode, KnowledgeMcpError
 from .models import (
     KnowledgeArticle,
+    KnowledgeAttachment,
     KnowledgeCategory,
     KnowledgeSearchCandidate,
 )
@@ -40,6 +43,14 @@ class KnowledgeBackend(ABC):
     async def get_article(
         self, article_id: str, authorization: AuthorizationContext | None = None
     ) -> KnowledgeArticle: ...
+
+    @abstractmethod
+    async def get_attachment(
+        self,
+        article_id: str,
+        attachment_id: str,
+        authorization: AuthorizationContext | None = None,
+    ) -> KnowledgeAttachment: ...
 
 
 class ServiceNowKnowledgeApiClient(KnowledgeBackend):
@@ -297,6 +308,68 @@ class ServiceNowKnowledgeApiClient(KnowledgeBackend):
             link=_optional_string(raw.get("link") or raw.get("url")),
         )
 
+    async def get_attachment(
+        self,
+        article_id: str,
+        attachment_id: str,
+        authorization: AuthorizationContext | None = None,
+    ) -> KnowledgeAttachment:
+        path = (
+            f"{self.config.servicenow_knowledge_api_path}/{quote(article_id, safe='')}"
+            f"/attachments/{quote(attachment_id, safe='')}"
+        )
+        attempts = self.config.transient_retry_attempts + 1
+        for attempt in range(attempts):
+            try:
+                async with self.http_client.stream(
+                    "GET", path, headers=await self._headers(authorization, "*/*")
+                ) as response:
+                    if (
+                        response.status_code == 429 or response.status_code >= 500
+                    ) and attempt + 1 < attempts:
+                        await response.aread()
+                        await asyncio.sleep(self.config.retry_backoff_seconds * (2**attempt))
+                        continue
+                    self._raise_for_status(response, "Knowledge attachment")
+                    declared_size = response.headers.get("Content-Length")
+                    if declared_size and int(declared_size) > self.config.max_attachment_bytes:
+                        raise KnowledgeMcpError(
+                            ErrorCode.PAYLOAD_TOO_LARGE,
+                            "Attachment exceeds the configured size limit",
+                        )
+                    data = bytearray()
+                    async for chunk in response.aiter_bytes():
+                        data.extend(chunk)
+                        if len(data) > self.config.max_attachment_bytes:
+                            raise KnowledgeMcpError(
+                                ErrorCode.PAYLOAD_TOO_LARGE,
+                                "Attachment exceeds the configured size limit",
+                            )
+                    return KnowledgeAttachment(
+                        article_id=article_id,
+                        attachment_id=attachment_id,
+                        filename=_filename(response.headers.get("Content-Disposition")),
+                        content_type=response.headers.get(
+                            "Content-Type", "application/octet-stream"
+                        ).split(";", 1)[0],
+                        size_bytes=len(data),
+                        content_base64=base64.b64encode(data).decode("ascii"),
+                    )
+            except KnowledgeMcpError:
+                raise
+            except httpx.TimeoutException as exc:
+                if attempt + 1 == attempts:
+                    raise KnowledgeMcpError(
+                        ErrorCode.UPSTREAM_TIMEOUT, "ServiceNow request timed out"
+                    ) from exc
+            except httpx.RequestError as exc:
+                if attempt + 1 == attempts:
+                    raise KnowledgeMcpError(
+                        ErrorCode.UPSTREAM_UNAVAILABLE, "ServiceNow is unavailable"
+                    ) from exc
+            await asyncio.sleep(self.config.retry_backoff_seconds * (2**attempt))
+        raise AssertionError("attachment retry loop exited unexpectedly")
+
 
 def _optional_string(value: Any) -> str | None:
     return None if value is None else str(value)
@@ -325,3 +398,12 @@ def _optional_bool(value: Any) -> bool | None:
     if normalized in {"false", "0", "no"}:
         return False
     return None
+
+
+def _filename(content_disposition: str | None) -> str | None:
+    if not content_disposition:
+        return None
+    message = Message()
+    message["content-disposition"] = content_disposition
+    filename = message.get_filename()
+    return filename.rsplit("/", 1)[-1].rsplit("\\", 1)[-1] if filename else None

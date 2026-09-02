@@ -17,6 +17,7 @@ from .config import ServiceNowKnowledgeConfig, get_config
 from .errors import KnowledgeMcpError
 from .models import (
     KnowledgeArticle,
+    KnowledgeAttachment,
     KnowledgeCategoriesResponse,
     KnowledgeSearchResponse,
 )
@@ -136,6 +137,23 @@ def create_mcp(
     async def get_knowledge_article(article_id: str) -> KnowledgeArticle:
         try:
             return await resolve_service().get_knowledge_article(article_id)
+        except KnowledgeMcpError as exc:
+            raise ToolError(f"{exc.code}: {exc.message}") from None
+
+    @server.tool(
+        description=(
+            "Use this supporting tool only when a selected Knowledge Article references an attachment "
+            "whose contents are required. It returns bounded base64 binary data and does not parse it."
+        ),
+        auth=scope_check(config.mcp_attachment_read_scope),
+    )
+    async def get_knowledge_attachment(
+        article_sys_id: str, attachment_sys_id: str
+    ) -> KnowledgeAttachment:
+        try:
+            return await resolve_service().get_knowledge_attachment(
+                article_sys_id, attachment_sys_id
+            )
         except KnowledgeMcpError as exc:
             raise ToolError(f"{exc.code}: {exc.message}") from None
 

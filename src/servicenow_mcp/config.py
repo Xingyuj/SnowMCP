@@ -21,6 +21,7 @@ class ServiceNowKnowledgeConfig(BaseSettings):
     mcp_search_scope: str = "knowledge.search"
     mcp_category_read_scope: str = "knowledge.category.read"
     mcp_article_read_scope: str = "knowledge.article.read"
+    mcp_attachment_read_scope: str = "knowledge.attachment.read"
     servicenow_api_version: str | None = None
     servicenow_knowledge_base: str | None = None
     servicenow_language: str | None = None
@@ -37,6 +38,7 @@ class ServiceNowKnowledgeConfig(BaseSettings):
     max_search_limit: int = Field(default=20, ge=1)
     category_page_size: int = Field(default=100, ge=1, le=500)
     max_article_content_chars: int = Field(default=100_000, ge=100)
+    max_attachment_bytes: int = Field(default=5_000_000, ge=1)
     transient_retry_attempts: int = Field(default=2, ge=0, le=5)
     retry_backoff_seconds: float = Field(default=0.2, ge=0, le=10)
     log_level: str = "INFO"
@@ -102,6 +104,7 @@ class ServiceNowKnowledgeConfig(BaseSettings):
                 self.mcp_search_scope.strip(),
                 self.mcp_category_read_scope.strip(),
                 self.mcp_article_read_scope.strip(),
+                self.mcp_attachment_read_scope.strip(),
             )
         ):
             raise ValueError("Every MCP tool scope must be non-empty")
