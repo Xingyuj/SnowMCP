@@ -1,0 +1,25 @@
+{{- $name := include "servicenowautomation-mcp.fullname" . -}}
+{{- $authPolicy := include "servicenowautomation-mcp.authpolicy" . -}}
+
+# Resource 1: RequestAuthentication
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: "{{ $name }}-ap"
+  labels:
+    {{- include "servicenowautomation-mcp.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ $name }}
+  action: ALLOW
+  rules:
+  - from:
+    - source:
+        principals: ["cluster.local/ns/istio-system/sa/istio-ingressgateway-int-service-account" {{ $authPolicy }}]
+    - source:
+        namespaces: ["{{ .Values.namespace }}", "istio-system"]
+    # to:
+    # - operation:
+    #     methods: ["GET"]

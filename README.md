@@ -80,7 +80,22 @@ servicenow-knowledge-mcp
 
 The MCP endpoint is available at `http://127.0.0.1:8080/mcp`.
 
-### 4. Verify
+Everything needed to build, scan, deploy, and provision infrastructure for this service lives under `devops/`:
+
+| Path | What it's for |
+|---|---|
+| `devops/build/Bupa.ServiceNowAutomation-mcp.yaml` | Main CI/CD pipeline: lint, test, build, push, and SonarQube analysis. Optional deployment adds Helm and APIM stages for dev/test. |
+| `devops/build/Bupa.ServiceNowAutomation-pr-policy.yaml` | PR validation pipeline (branch-policy gate on `main`) — build + scan only, no deploy. |
+| `devops/build/templates/` | Reusable pipeline steps: `buildMcpImage.yaml`, `deployMcpImage.yaml`, `registerMcpApim.yaml`, `security_scans.yaml`. See `devops/build/readme.md`. |
+| `devops/deploy/helm/servicenowautomation-mcp/` | Helm chart (Deployment, Service, ConfigMap, ServiceAccount, PDB, Istio VirtualService/AuthorizationPolicy). See `devops/deploy/readme.md`. |
+| `devops/IAC/Terraform/` | Terraform for the app's Azure resources (Key Vault secrets, App Insights, ADO environment/pipeline variables). |
+| `devops/IAC/EnvironmentBuilder-AZ.yaml` / `-stages.yaml` | Manually-triggered ADO pipeline to apply/destroy the Terraform. |
+| `cacert.crt` *(repo root)* | Bupa internal root CA, baked into the Docker image for TLS trust to internal endpoints. |
+| `Dockerfile-SonarQube` *(repo root)* | Build variant used only by the CI SonarQube scan stage. |
+| `.dockerignore.sonar` *(repo root)* | SonarQube Docker build exclusions; intentionally retains Git metadata for branch analysis. |
+| `.gitignore` *(repo root)* | Standard Python ignores. |
+
+### Docker Build
 
 With the HTTP server running in another terminal:
 

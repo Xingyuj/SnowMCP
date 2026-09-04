@@ -1,0 +1,45 @@
+variables:
+  - name: appname
+    value: "ServiceNowAutomation"
+  - name: "tf_azSubsSvc"
+    value: "BupaANZ-CaaS-Test-devops-cli-sp"
+
+parameters:
+  - name: environment
+    displayName: Environment
+    type: string
+    default: Test
+
+  - name: Destroy
+    displayName: Destroy Azure Resources
+    type: boolean
+    default: false
+
+  - name: ApplyChanges
+    displayName: Apply Changes
+    type: boolean
+    default: false
+
+trigger:
+  - none
+name: "'${{ variables.appname }}-${{ parameters.environment }}-Create-AZ-.$(DayOfYear)$(Rev:.r)"
+
+pool:
+  name: "banz-managedpool-poc"
+  demands:
+    - ImageOverride -equals ubuntu-24.04
+
+stages:
+  - template: ./EnvironmentBuilder-AZ-stages.yaml
+    parameters:
+      azSubsSvc: "$(tf_azSubsSvc)"
+      tfStateRG: "$(tfStateRG)"
+      tfStateSA: "$(tfStateSA)"
+      tfStateContainer: "terraform"
+      tfStateFile: '${{ variables.appname }}\${{ parameters.environment }}\terraform-az.tfstate'
+      appname: ${{ variables.appname }}
+      environment: ${{ parameters.environment }}
+      identity_name: $(identity_name)
+      Platform: $(Platform)
+      Destroy: ${{ parameters.Destroy }}
+      ApplyChanges: ${{ parameters.ApplyChanges }}

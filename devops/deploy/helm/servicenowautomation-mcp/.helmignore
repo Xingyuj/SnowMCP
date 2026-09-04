@@ -1,0 +1,22 @@
+# Patterns to ignore when building packages.
+# This supports shell glob patterns, relative paths, and negated patterns.
+#
+# Regular expressions are not supported, but # provides comment lines
+# and ! negates patterns.
+
+.DS_Store
+# Common VCS dirs
+.git/
+.gitignore
+.bzr/
+.bzrignore
+.hg/
+.hgignore
+.svn/
+# Common backup files
+*.swp
+*.swo
+*~
+.idea/
+*.tmproj
+.vscode/

@@ -1,0 +1,114 @@
+FROM devopsdockercontainers.azurecr.io/bupabase/dotnet/sdk:python-3.12-v1
+
+ARG SQ_PROJECT_KEY=vsts-overide
+ARG SQ_HOST=vsts-overide
+ARG SQ_TOKEN=vsts-override
+ARG var_pr_key=vsts-overide
+ARG var_pr_src=vsts-overide
+ARG var_pr_dest=vsts-overide
+ARG Azure_DevOps_Build_Id=vsts-overide
+ARG AZURE_ARTIFACTS_TOKEN
+
+ENV PROJECT_DIR=/workspace \
+
+
+MCP_DIR=/workspace/src/servicenowautomation_mcp \
+
+
+TEST_DIR=/src/testresults
+
+# Copy the application into the container
+COPY . ${PROJECT_DIR}
+
+WORKDIR ${PROJECT_DIR}
+
+# Ensure the certificates are up to date
+ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt \
+    REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt \
+    CURL_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
+
+# Configure apt to use HTTPS repositories
+RUN find /etc/apt -type f -name "*.list" -exec sed -i 's|http://deb.debian.org|https://deb.debian.org|g' {} \; \
+    && find /etc/apt -type f -name "*.list" -exec sed -i 's|http://security.debian.org|https://security.debian.org|g' {} \; \
+    && find /etc/apt -type f -name "*.sources" -exec sed -i 's|http://deb.debian.org|https://deb.debian.org|g' {} \; \
+    && find /etc/apt -type f -name "*.sources" -exec sed -i 's|http://security.debian.org|https://security.debian.org|g' {} \;
+
+# Install required tools (git for SonarQube, uv for Python package management)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git \
+    curl \
+    ca-certificates \
+    && curl -LsSf https://astral.sh/uv/install.sh | sh \
+    && cp /app/.local/bin/uv /usr/local/bin/uv \
+    && cp /app/.local/bin/uvx /usr/local/bin/uvx \
+    && chmod +x /usr/local/bin/uv /usr/local/bin/uvx \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create test results directory
+
+
+RUN mkdir -p ${TEST_DIR}/servicenowautomation-mcp
+
+
+
+# Create a dedicated non-root user for running tooling (aligned with nexus-api)
+RUN groupadd --system ServiceNowAutomation-ai-factory && useradd --system --create-home --gid ServiceNowAutomation-ai-factory --shell /bin/bash ServiceNowAutomation-ai-factory && \
+    chown -R ServiceNowAutomation-ai-factory:ServiceNowAutomation-ai-factory ${PROJECT_DIR} ${TEST_DIR}
+
+USER ServiceNowAutomation-ai-factory
+
+
+
+
+# ==========================================
+# servicenowautomation-mcp MCP - Python Tests & Coverage
+# ==========================================
+WORKDIR ${MCP_DIR}
+RUN if [ -n "$AZURE_ARTIFACTS_TOKEN" ]; then \
+        export UV_INDEX_BUPA_AIFACTORY_PACKAGES_URL="https://build:${AZURE_ARTIFACTS_TOKEN}@pkgs.dev.azure.com/bupaaunz/ebbc46dc-103f-467d-bc6b-a81ad06bb560/_packaging/Bupa.AIfactory.Packages/pypi/simple/"; \
+        export PIP_EXTRA_INDEX_URL="$UV_INDEX_BUPA_AIFACTORY_PACKAGES_URL"; \
+    fi && \
+    echo "=== Installing MCP Dependencies ===" \
+    && uv sync --frozen --no-cache --extra dev \
+    && echo "=== Running MCP Tests ===" \
+    && PYTHONPATH="${MCP_DIR}" uv run pytest \
+        --cov=. \
+        --cov-report=xml:${TEST_DIR}/servicenowautomation-mcp/coverage.xml \
+        --cov-report=html:${TEST_DIR}/servicenowautomation-mcp/coverage-html \
+        --cov-report=term \
+        --junitxml=${TEST_DIR}/servicenowautomation-mcp/test-results.xml \
+        tests/ || echo "MCP tests completed with errors"
+
+
+
+
+# ==========================================
+# SONARQUBE SCAN - Full Codebase Analysis
+# ==========================================
+WORKDIR ${PROJECT_DIR}
+
+# Configure git safe directory for SonarQube to access git refs
+RUN git config --global --add safe.directory /workspace
+
+# Fetch the target branch to ensure it's available for SonarQube analysis
+RUN if [ -n "$PR_TARGET_BRANCH" ] && [ "$PR_TARGET_BRANCH" != "" ]; then \
+        echo "=== Fetching target branch: $PR_TARGET_BRANCH ===" && \
+        git fetch origin $PR_TARGET_BRANCH:refs/remotes/origin/$PR_TARGET_BRANCH || echo "WARNING: Failed to fetch $PR_TARGET_BRANCH" ; \
+    fi
+# Run SonarQube scanner (aligned with nexus-api approach)
+RUN sonar-scanner \
+    -Dsonar.projectKey=${SQ_PROJECT_KEY} \
+    -Dsonar.host.url=${SQ_HOST} \
+    -Dsonar.login=${SQ_TOKEN} \
+    -D${var_pr_src} \
+    -D${var_pr_key} \
+    -D${var_pr_dest} \
+
+
+    -Dsonar.python.coverage.reportPaths="/src/testresults/servicenowautomation-mcp/coverage.xml" \
+
+
+    -Dsonar.exclusions=**/scripts/**,**/tests/**,**/pdb.yaml,**/devops/**,**/*.spec.ts,**/*.spec.tsx \
+    -Dsonar.test.exclusions=**/scripts/**,**/tests/**,**/devops/**,**/*.spec.ts,**/*.spec.tsx \
+    -Dsonar.qualitygate.wait=true

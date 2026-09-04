@@ -1,0 +1,103 @@
+{{- $name := include "servicenowautomation-mcp.fullname" . -}}
+{{- $cfgname := printf "%s-%s" $name "config" -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "servicenowautomation-mcp.fullname" . }}
+  labels:
+    {{- include "servicenowautomation-mcp.labels" . | nindent 4 }}
+  annotations:
+    ado_repo: {{ .Values.adoRepoName | quote}}
+    ado_pipeline: {{ .Values.adoPipelineId | quote}}
+    ado_buildId: {{ .Values.adoBuildId | quote}}
+    ado_teamProject: {{ .Values.adoTeamProject | quote}}
+    ado_commitId: {{ .Values.adoCommitId | quote}}
+    ado_sourceBranchName: {{ .Values.adoSourceBranchName | quote}}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "servicenowautomation-mcp.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        ado_repo: {{ .Values.adoRepoName | quote}}
+        ado_pipeline: {{ .Values.adoPipelineId | quote}}
+        ado_buildId: {{ .Values.adoBuildId | quote}}
+        ado_teamProject: {{ .Values.adoTeamProject | quote}}
+        ado_commitId: {{ .Values.adoCommitId | quote}}
+        ado_sourceBranchName: {{ .Values.adoSourceBranchName | quote}}
+      labels:
+        {{- include "servicenowautomation-mcp.selectorLabels" . | nindent 8 }}
+        azure.workload.identity/use: "true"
+    spec:
+      serviceAccountName: {{ .Values.serviceAccount.name }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.registry }}/{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env: 
+            - name: PATH_BASE
+              value: "{{ .Values.pathBase }}/{{ .Values.inf.conf.environment }}"
+          envFrom:
+            - configMapRef:
+                name: {{ $cfgname }}  
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          volumeMounts:
+            - name: appd-agent-repo
+              mountPath: /opt/appdynamics
+          {{- if .Values.probes.readiness.enabled }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.probes.readiness.path }}
+              port: {{ .Values.probes.readiness.port }}
+            timeoutSeconds: {{ .Values.probes.readiness.timeoutSeconds }}
+            initialDelaySeconds: {{ .Values.probes.readiness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
+            failureThreshold: {{ .Values.probes.readiness.failureThreshold }}
+          {{- end }}
+          {{- if .Values.probes.liveness.enabled }}
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.probes.liveness.path }}
+              port: {{ .Values.probes.liveness.port }}
+            timeoutSeconds: {{ .Values.probes.liveness.timeoutSeconds }}
+            initialDelaySeconds: {{ .Values.probes.liveness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.liveness.periodSeconds }}
+            failureThreshold: {{ .Values.probes.liveness.failureThreshold }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      initContainers:
+        - name: appd-agent
+          image: "{{ .Values.image.registry }}/{{ .Values.image.appdrepository }}:{{ .Values.image.appdtag }}"
+          volumeMounts:
+            - mountPath: /appdynamics
+              name: appd-agent-repo
+      volumes:
+        - name: appd-agent-repo
+          emptyDir: {}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      dnsConfig:
+        options:
+          - name: ndots
+            value: "1"
+          - name: single-request

@@ -1,0 +1,17 @@
+{{- $name := include "servicenowautomation-mcp.fullname" . -}}
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: "{{ $name }}-config"
+  labels:
+    app: {{ $name }}
+    chart: {{ template "servicenowautomation-mcp.chart" .}}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+data:
+  {{- if .Values.inf.conf.servicenowautomation_mcp.configMaps -}}
+{{- range $key, $value := .Values.inf.conf.servicenowautomation_mcp.configMaps }}
+  {{ $key }}: {{ default "" $value | quote }}
+{{- end -}}
+{{- end }}

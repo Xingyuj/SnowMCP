@@ -1,0 +1,9 @@
+py -m pip install --user --upgrade pip
+py -m pip install --user -e ".[dev]"
+py -m pytest -q
+
+cp .env.example .env
+py -m servicenow_mcp.server
+
+
+python scripts/mcp_client.py list
