@@ -1,0 +1,179 @@
+parameters:
+  - name: "azSubsSvc"
+  - name: "tfStateRG"
+  - name: "tfStateSA"
+  - name: "tfStateContainer"
+  - name: "tfStateFile"
+  - name: "appname"
+  - name: "environment"
+  - name: "identity_name"
+  - name: "Platform"
+  - name: "Destroy"
+    type: boolean
+    default: false
+  - name: ApplyChanges
+    displayName: Apply Changes
+    type: boolean
+    default: false
+
+stages:
+  - stage: az
+    displayName: AZ ${{ parameters.environment }} Create
+    variables:
+      - group: "AKS_nonprod_4"
+      - group: "inf_secrets_${{ parameters.appname }}_${{ parameters.environment }}"
+    jobs:
+      - deployment: az
+        environment: IaC
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - checkout: self
+                - task: ms-devlabs.custom-terraform-tasks.custom-terraform-installer-task.TerraformInstaller@1
+                  displayName: "Install Terraform latest"
+                  inputs:
+                    terraformVersion: "latest"
+
+                - task: AzureCLI@2
+                  displayName: "List Variables"
+                  inputs:
+                    azureSubscription: ${{parameters.azSubsSvc}}
+                    scriptType: bash
+                    scriptLocation: inlineScript
+                    inlineScript: |
+                      echo "azSubsSvc                    : " "${{parameters.azSubsSvc}}"
+                      echo "tfStateSA                    : " "${{parameters.tfStateSA}}"
+                      echo "tfStateContainer             : " "${{parameters.tfStateContainer}}"
+                      echo "tfStateFile                  : " "${{parameters.tfStateFile}}"
+                      echo "appname                      : " "${{ parameters.appname }}"
+                      echo "app_short_name               : " "$(az_app_short_name)"
+                      echo "environment                  : " "${{parameters.environment}}"
+                      echo "identity_name                : " "$(identity_name)"
+                      echo "managed_identity_name        : " "$(managed_identity_name)"
+                      echo "ado_project_name             : " "$(ado_project_name)"
+                      echo "namespace_name               : " "$(namespace_name)"
+                      echo "TeamProject                  : " "$(System.TeamProject)"
+                      echo "TeamProjectId                : " "$(System.TeamProjectId)"
+                      echo "endpoint_subnet_name         : " "$(subnet_name)" 
+                      echo "endpoint_vnet_name           : " "$(network_vnet_name)"
+                      echo "endpoint_vnet_resource_group : " "$(network_rg_name)"
+
+                - powershell:
+                    'git config --global http.extraheader "AUTHORIZATION: bearer
+                    $(System.AccessToken)"'
+                  displayName: "git config --global http.extraheader"
+
+                - task: TerraformTaskV4@4
+                  displayName: "Terraform : init"
+                  inputs:
+                    provider: "azurerm"
+                    command: "init"
+                    workingDirectory: $(System.DefaultWorkingDirectory)/devops/IAC/Terraform
+                    backendServiceArm: "${{parameters.azSubsSvc}}"
+                    backendAzureRmResourceGroupName: ${{parameters.tfStateRG}}
+                    backendAzureRmStorageAccountName: ${{parameters.tfStateSA}}
+                    backendAzureRmContainerName: ${{parameters.tfStateContainer}}
+                    backendAzureRmKey: ${{parameters.tfStateFile}}
+                    backendAzureRmUseEnvironmentVariablesForAuthentication: false
+                    backendAzureRmUseEntraIdForAuthentication: true
+
+                - task: TerraformTaskV4@4
+                  displayName: "Terraform : plan"
+                  inputs:
+                    provider: "azurerm"
+                    command: plan
+                    workingDirectory: $(System.DefaultWorkingDirectory)/devops/IAC/Terraform
+                    commandOptions: >
+                      -input=false 
+                      -var TeamProjectName="$(ado_project_name)" 
+                      -var app_name="${{ parameters.appname }}" 
+                      -var app_short_name="$(az_app_short_name)" 
+                      -var resource_group_name="$(resource_group)" 
+                      -var endpoint_subnet_name="$(subnet_name)" 
+                      -var endpoint_vnet_name="$(network_vnet_name)"
+                      -var endpoint_vnet_resource_group="$(network_rg_name)"
+                      -var environment_name="${{parameters.environment}}" 
+                      -var identity_name="${{parameters.identity_name}}" 
+                      -var PAT=$(System.AccessToken)
+                      -var service_connection_sp_object_id=$(service_connection_sp_object_id)
+                      -var managed_identity_sp_object_id=$(managed_identity_sp_object_id)
+                      -var managed_identity_sp_client_id=$(managed_identity_sp_client_id)
+                      -var managed_identity_name=$(managed_identity_name)
+                      -var namespace_name="$(namespace_name)"
+                      -var k8s_namespace_account_name="$(k8s_namespace_account_name)"
+                      -var-file=$(System.DefaultWorkingDirectory)/devops/IAC/Terraform/env/${{ lower(parameters.environment) }}.tfvars
+                    environmentServiceNameAzureRM: "${{parameters.azSubsSvc}}"
+                  condition: and(succeeded(), ${{ ne(parameters.Destroy, true) }})
+
+                - powershell: "git config --global --unset http.extraheader"
+                  displayName: "git config --global --unset http.extraheader"
+                  condition: always()
+
+                - task: TerraformTaskV4@4
+                  displayName: "Terraform : Destroy"
+                  inputs:
+                    provider: "azurerm"
+                    command: destroy
+                    workingDirectory: $(System.DefaultWorkingDirectory)/devops/IAC/Terraform
+                    commandOptions: >
+                      -input=false 
+                      -var TeamProjectName="$(ado_project_name)" 
+                      -var app_name="${{ parameters.appname }}" 
+                      -var app_short_name="$(az_app_short_name)"
+                      -var resource_group_name="$(resource_group)" 
+                      -var endpoint_subnet_name="$(subnet_name)" 
+                      -var endpoint_vnet_name="$(network_vnet_name)"
+                      -var endpoint_vnet_resource_group="$(network_rg_name)"                      
+                      -var environment_name="${{parameters.environment}}" 
+                      -var identity_name="${{parameters.identity_name}}" 
+                      -var PAT=$(System.AccessToken)
+                      -var service_connection_sp_object_id=$(service_connection_sp_object_id)
+                      -var managed_identity_sp_object_id=$(managed_identity_sp_object_id)
+                      -var managed_identity_sp_client_id=$(managed_identity_sp_client_id)
+                      -var managed_identity_name=$(managed_identity_name)
+                      -var namespace_name="$(namespace_name)"
+                      -var k8s_namespace_account_name="$(k8s_namespace_account_name)"
+                      -var-file=$(System.DefaultWorkingDirectory)/devops/IAC/Terraform/env/${{ lower(parameters.environment) }}.tfvars
+                      -auto-approve
+                    environmentServiceNameAzureRM: "${{parameters.azSubsSvc}}"
+                  condition: and(succeeded(), ${{ eq(parameters.Destroy, true) }}, ${{ eq(parameters.ApplyChanges, true) }})
+
+                - task: TerraformTaskV4@4
+                  displayName: "Terraform : apply"
+                  inputs:
+                    provider: "azurerm"
+                    command: apply
+                    workingDirectory: $(System.DefaultWorkingDirectory)/devops/IAC/Terraform
+                    commandOptions: >
+                      -input=false 
+                      -var TeamProjectName="$(ado_project_name)" 
+                      -var app_name="${{ parameters.appname }}" 
+                      -var app_short_name="$(az_app_short_name)"
+                      -var resource_group_name="$(resource_group)" 
+                      -var endpoint_subnet_name="$(subnet_name)" 
+                      -var endpoint_vnet_name="$(network_vnet_name)"
+                      -var endpoint_vnet_resource_group="$(network_rg_name)"   
+                      -var environment_name="${{parameters.environment}}" 
+                      -var identity_name="${{parameters.identity_name}}" 
+                      -var PAT=$(System.AccessToken)
+                      -var service_connection_sp_object_id=$(service_connection_sp_object_id)
+                      -var managed_identity_sp_object_id=$(managed_identity_sp_object_id)
+                      -var managed_identity_sp_client_id=$(managed_identity_sp_client_id)
+                      -var managed_identity_name=$(managed_identity_name)
+                      -var namespace_name="$(namespace_name)"
+                      -var k8s_namespace_account_name="$(k8s_namespace_account_name)"
+                      -var-file=$(System.DefaultWorkingDirectory)/devops/IAC/Terraform/env/${{ lower(parameters.environment) }}.tfvars
+                      -auto-approve
+                    environmentServiceNameAzureRM: "${{parameters.azSubsSvc}}"
+                  condition: and(succeeded(), ${{ ne(parameters.Destroy, true) }}, ${{ eq(parameters.ApplyChanges, true) }})
+                  retryCountOnTaskFailure: 3
+
+                - task: CopyFiles@2
+                  displayName: "Copy Files to: $(Build.ArtifactStagingDirectory)"
+                  inputs:
+                    Contents: "*.json"
+                    TargetFolder: "$(Build.ArtifactStagingDirectory)"
+
+                - task: PublishBuildArtifacts@1
+                  displayName: "Publish Artifact: drop"

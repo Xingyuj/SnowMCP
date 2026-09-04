@@ -1,0 +1,25 @@
+{{- $name := include "servicenowautomation-mcp.fullname" . -}}
+
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: "{{ $name }}-vs"
+  labels:
+    {{- include "servicenowautomation-mcp.labels" . | nindent 4 }}
+spec:
+  hosts:
+  - {{ .Values.inf.conf.host }}
+  gateways:
+  - default/istio-internal-ingressgateway
+  - istio-system/istio-internal-ingressgateway
+  http:
+    - match:
+      - uri:
+          prefix: {{ .Values.pathBase }}-{{ .Values.inf.conf.environment }}/
+      rewrite:
+        uri: /
+      route:
+      - destination:
+          host: {{ $name }}-svc
+          port:
+            number: 8080

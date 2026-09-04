@@ -1,0 +1,49 @@
+FROM python:3.12-slim AS base
+
+# Build arguments for Azure Artifacts authentication
+ARG AZURE_ARTIFACTS_TOKEN
+
+# Create non-root user and group
+RUN addgroup --system --gid 1001 appgroup && \
+    adduser --system --uid 1001 --gid 1001 --no-create-home --disabled-password appuser
+
+WORKDIR /app
+
+ENV PYTHONPATH="/app"
+
+COPY cacert.crt /usr/local/share/ca-certificates/cacert.crt
+RUN update-ca-certificates
+
+RUN pip install --no-cache-dir --upgrade pip==24.3.1 \
+    && pip install --no-cache-dir uv==0.5.11
+
+RUN chown -R appuser:appgroup /app
+
+# Copy dependency files only for better layer caching
+COPY --chown=appuser:appgroup src/servicenowautomation_mcp/pyproject.toml src/servicenowautomation_mcp/uv.lock ./servicenowautomation_mcp/
+
+# Install dependencies only (without the project itself) with Azure Artifacts authentication
+RUN if [ -n "$AZURE_ARTIFACTS_TOKEN" ]; then \
+        export UV_EXTRA_INDEX_URL="https://build:${AZURE_ARTIFACTS_TOKEN}@pkgs.dev.azure.com/bupaaunz/ebbc46dc-103f-467d-bc6b-a81ad06bb560/_packaging/Bupa.AIfactory.Packages/pypi/simple/"; \
+        export PIP_EXTRA_INDEX_URL="$UV_EXTRA_INDEX_URL"; \
+    fi && \
+    cd servicenowautomation_mcp && \
+    uv sync --frozen --no-cache --no-install-project
+
+# Copy application source code
+COPY --chown=appuser:appgroup src/servicenowautomation_mcp/ ./servicenowautomation_mcp/
+
+# Install the project itself now that source code is present
+RUN cd servicenowautomation_mcp && uv pip install --system --no-cache -e .
+
+ENV REQUESTS_CA_BUNDLE=/etc/ssl/certs
+
+# Switch to non-root user
+USER appuser
+
+WORKDIR /app/servicenowautomation_mcp
+
+
+EXPOSE 8080
+
+CMD ["uvicorn", "main:mcp_app", "--host", "0.0.0.0", "--port", "8080"]

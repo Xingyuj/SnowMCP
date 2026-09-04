@@ -1,0 +1,19 @@
+namespace: servicenowautomation-dev-ns
+
+inf:
+  conf:
+    host: caasnp4.bupa.com.au
+    hostext: np4.caasi.bupa.com.au
+    environment: dev
+    msi_clientid: 24d9daf1-f228-4741-8def-ed73266bb7ad
+    authpolicy: "True"
+    enable_swagger: "true"
+    servicenowautomation_mcp:
+      azure_tenant_id: "fee9c112-179f-46e3-ab98-f8d58602cf19"
+      python_environment: "dev"
+      configMaps:
+        LOG_LEVEL: "INFO"
+
+serviceAccount:
+  create: false
+  name: "servicenowautomation-dev-accnt"
