@@ -1,0 +1,215 @@
+parameters:
+  - name: "mcpServerName"
+    displayName: "MCP Server logical name (used for APIM resource naming and API path)"
+  - name: "mcpDescription"
+    default: "Model Context Protocol Server"
+  - name: "env"
+  - name: "APIMazSubsSvc"
+  - name: "APIMSubscriptionId"
+    default: "ee604705-a4ac-4132-8ef4-d69c441d9038"
+  - name: "APIMResourceGroupName"
+    default: "APIM-test-rg01"
+  - name: "ApiPortalName"
+    default: "banztestapim01"
+  - name: "GatewayDomain"
+    default: "caasnp4.bupa.com.au"
+  - name: "backendName"
+    default: "mcp-backend"
+  - name: "backendUrl"
+    default: "https://caasnp4.bupa.com.au"
+  - name: "azureAudienceId"
+    default: ""
+
+steps:
+  - task: AzureCLI@2
+    displayName: "[${{parameters.mcpServerName}}] Deploy APIM Backend"
+    inputs:
+      azureSubscription: ${{parameters.APIMazSubsSvc}}
+      scriptLocation: inlineScript
+      scriptType: bash
+      inlineScript: |
+        set -e
+
+        BACKEND_BODY=$(cat <<'BACKEND_EOF'
+        {
+          "properties": {
+            "url": "${{parameters.backendUrl}}",
+            "protocol": "http",
+            "description": "${{parameters.mcpServerName}} AKS Backend",
+            "tls": {
+              "validateCertificateChain": false,
+              "validateCertificateName": false
+            }
+          }
+        }
+        BACKEND_EOF
+        )
+
+        az rest \
+          --method PUT \
+          --url "https://management.azure.com/subscriptions/${{parameters.APIMSubscriptionId}}/resourceGroups/${{parameters.APIMResourceGroupName}}/providers/Microsoft.ApiManagement/service/${{parameters.ApiPortalName}}/backends/${{parameters.backendName}}?api-version=2024-06-01-preview" \
+          --body "$BACKEND_BODY"
+
+        echo "Backend created/updated: ${{parameters.backendName}}"
+
+  - task: AzureCLI@2
+    displayName: "[${{parameters.mcpServerName}}] Deploy APIM MCP API"
+    inputs:
+      azureSubscription: ${{parameters.APIMazSubsSvc}}
+      scriptLocation: inlineScript
+      scriptType: bash
+      inlineScript: |
+        set -e
+        API_NAME="${{parameters.mcpServerName}}-${{parameters.env}}"
+
+        echo "Creating MCP API: $API_NAME..."
+        API_BODY=$(cat <<'MCP_EOF'
+        {
+          "properties": {
+            "displayName": "${{parameters.mcpServerName}}",
+            "description": "${{parameters.mcpDescription}}",
+            "subscriptionRequired": true,
+            "backendId": "${{parameters.backendName}}",
+            "path": "ext/AIFactory/${{parameters.env}}/${{parameters.mcpServerName}}",
+            "protocols": ["https"],
+            "type": "mcp",
+            "mcpProperties": {
+              "transportType": "streamable",
+              "endpoints": {
+                "mcp": {
+                  "method": "POST",
+                  "uriTemplate": "/mcp"
+                }
+              }
+            },
+            "authenticationSettings": {
+              "oAuth2": null,
+              "openid": null,
+              "oAuth2AuthenticationSettings": [],
+              "openidAuthenticationSettings": []
+            },
+            "subscriptionKeyParameterNames": {
+              "header": "Ocp-Apim-Subscription-Key",
+              "query": "subscription-key"
+            }
+          }
+        }
+        MCP_EOF
+        )
+
+        az rest \
+          --method PUT \
+          --url "https://management.azure.com/subscriptions/${{parameters.APIMSubscriptionId}}/resourceGroups/${{parameters.APIMResourceGroupName}}/providers/Microsoft.ApiManagement/service/${{parameters.ApiPortalName}}/apis/$API_NAME?api-version=2024-06-01-preview" \
+          --body "$API_BODY"
+
+        echo "MCP API created: $API_NAME"
+
+  - task: AzureCLI@2
+    displayName: "[${{parameters.mcpServerName}}] Set APIM Policies"
+    inputs:
+      azureSubscription: ${{parameters.APIMazSubsSvc}}
+      scriptLocation: inlineScript
+      scriptType: bash
+      inlineScript: |
+        set -e
+        echo "Applying APIM Policies..."
+
+        API_NAME="${{parameters.mcpServerName}}-${{parameters.env}}"
+        API_PATH="ext/AIFactory/${{parameters.env}}/${{parameters.mcpServerName}}"
+
+        # XML Policies to apply
+        POLICIES_XML=$(cat <<'POLICIES_EOF'
+        <policies>
+            <inbound>
+                <cors>
+                    <allowed-origins>
+                        <origin>*</origin>
+                    </allowed-origins>
+                    <allowed-methods>
+                        <method>*</method>
+                    </allowed-methods>
+                    <allowed-headers>
+                        <header>*</header>
+                    </allowed-headers>
+                </cors>
+                <!-- Check for Authorization header and validate JWT only when present -->
+                <choose>
+                    <when condition="@(context.Request.Headers.ContainsKey(&quot;Authorization&quot;))">
+                        <validate-jwt header-name="Authorization" failed-validation-httpcode="401" failed-validation-error-message="JWT validation failed">
+                            <openid-config url="https://login.microsoftonline.com/fee9c112-179f-46e3-ab98-f8d58602cf19/.well-known/openid-configuration" />
+                            <audiences>
+                                <audience>$(azureAudienceId)</audience>
+                            </audiences>
+                            <issuers>
+                                <issuer>https://login.microsoftonline.com/fee9c112-179f-46e3-ab98-f8d58602cf19/v2.0</issuer>
+                            </issuers>
+                            <required-claims>
+                                <claim name="scp" match="all" separator=" ">
+                                    <value>Baixa-Access</value>
+                                </claim>
+                            </required-claims>
+                        </validate-jwt>
+                    </when>
+                    <!-- If no Authorization header, proceed without validation -->
+                </choose>
+                <base />
+                <authentication-certificate thumbprint="{{APIPlatform-SIT-AKS-Thumbprint}}" />
+            </inbound>
+            <backend>
+                <base />
+            </backend>
+            <outbound>
+                <base />
+                <set-header name="Strict-Transport-Security" exists-action="override">
+                    <value>max-age=31536000; includeSubDomains</value>
+                </set-header>
+                <set-header name="X-Content-Type-Options" exists-action="override">
+                    <value>nosniff</value>
+                </set-header>
+                <set-header name="Cache-Control" exists-action="skip">
+                    <value>no-cache, no-store, must-revalidate</value>
+                </set-header>
+                <set-header name="Pragma" exists-action="override">
+                    <value>no-cache</value>
+                </set-header>
+                <set-header name="Expires" exists-action="override">
+                    <value>0</value>
+                </set-header>
+                <set-header name="X-Frame-Options" exists-action="override">
+                    <value>deny</value>
+                </set-header>
+                <set-header name="Content-Security-Policy" exists-action="override">
+                    <value>frame-ancestors 'none'</value>
+                </set-header>
+                <set-header name="Referrer-Policy" exists-action="override">
+                    <value>no-referrer</value>
+                </set-header>
+            </outbound>
+            <on-error>
+                <base />
+            </on-error>
+        </policies>
+        POLICIES_EOF
+        )
+
+        # Convert XML to JSON-escaped string
+        POLICIES_JSON=$(echo "$POLICIES_XML" | python3 -c "import sys, json; print(json.dumps(sys.stdin.read()))")
+
+        # Build policy payload
+        POLICY_BODY=$(cat <<POLICY_BODY_EOF
+        {
+          "properties": {
+            "format": "rawxml",
+            "value": $POLICIES_JSON
+          }
+        }
+        POLICY_BODY_EOF
+        )
+
+        POLICY_URI="https://management.azure.com/subscriptions/${{parameters.APIMSubscriptionId}}/resourceGroups/${{parameters.APIMResourceGroupName}}/providers/Microsoft.ApiManagement/service/${{parameters.ApiPortalName}}/apis/$API_NAME/policies/policy?api-version=2024-06-01-preview"
+
+        echo "Applying policies to $API_NAME..."
+        az rest --method PUT --url "$POLICY_URI" --body "$POLICY_BODY"
+        echo "Policies applied successfully"
+
+        echo "MCP Registration Complete: https://api.np.bupa.com.au/$API_PATH/mcp"

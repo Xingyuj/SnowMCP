@@ -1,0 +1,168 @@
+resources:
+  repositories:
+    - repository: ApplicationSecurityTemplates
+      type: git
+      name: Application Security Automations/ApplicationSecurityTemplates
+      ref: refs/heads/main
+
+trigger:
+  branches:
+    include:
+      - develop
+
+name: $(BuildDefinitionName).$(DayOfYear)$(Rev:.r)
+
+pool:
+  vmImage: "ubuntu-latest"
+
+parameters:
+  - name: env
+    displayName: MCP Server Environment
+    type: string
+    default: dev
+    values:
+      - dev
+      - test
+  - name: pushToProdAcr
+    displayName: Push to Prod ACR
+    type: boolean
+    default: false
+  - name: deploy
+    displayName: Deploy MCP Server
+    type: boolean
+    default: false
+
+variables:
+  - name: imageTag
+    value: $(Build.BuildId)
+  - name: projectName
+    value: "servicenowautomation-mcp"
+  - name: helmVersion
+    value: "3.1.2"
+  - name: expName
+    value: "ServiceNowAutomation"
+  - name: repository
+    value: "$(expName)/$(projectName)"
+
+stages:
+  - stage: Build
+    displayName: Build MCP Image
+    jobs:
+      - job: BuildMcp
+        displayName: Build servicenowautomation-mcp image
+        pool: 'NextGen Containers'
+        steps:
+          - template: templates/buildMcpImage.yaml
+            parameters:
+              repository: $(repository)
+              projectName: $(projectName)
+              pushToProdAcr: ${{ parameters.pushToProdAcr }}
+
+  - stage: SecurityScan
+    displayName: 'Security Scans'
+    jobs:
+      - template: templates/security_scans.yaml
+        parameters:
+          sonarQubeProjectKey: 'ServiceNowAutomation_ServiceNowAutomation_ServiceNowAutomation'
+          dockerTestImageTag: 'servicenowautomation-sonar'
+          containerRegistry: 'ACR:TEST'
+          sonarQubeVariableGroup: 'SonarQubeVariables'
+          checkmarxProjectNamePostfix: 'servicenowautomation'
+          runCheckmarx: false
+
+  - ${{ if eq(parameters.deploy, true) }}:
+    - stage: DEV_Deploy
+      displayName: DEV Deploy MCP Server
+      condition: and(
+        ne(variables['Build.Reason'], 'PullRequest'),
+        eq('${{ parameters.env }}', 'dev'))
+      dependsOn:
+        - Build
+      variables:
+        - name: "CLUSTER_NAME"
+          value: "nonprod4aks"
+        - name: "AKS_RESOURCE_GROUP_NAME"
+          value: "devops-caas-test-rg01"
+        - name: "appNameSpace"
+          value: "servicenowautomation-dev-ns"
+        - name: "tenantId"
+          value: "fee9c112-179f-46e3-ab98-f8d58602cf19"
+      jobs:
+        - deployment: DEV_ServiceNowAutomation_MCP_Deploy
+          displayName: DEV ServiceNowAutomation MCP Deploy
+          environment: ServiceNowAutomation_dev
+          strategy:
+            runOnce:
+              deploy:
+                steps:
+                  # AKS Helm deployment (runs once)
+                  - template: templates/deployMcpImage.yaml
+                    parameters:
+                      chartName: "servicenowautomation-mcp"
+                      azSubsSvc: "devops-cli-sp-caas-lz2-test"
+                      CLUSTER_NAME: $(CLUSTER_NAME)
+                      AKS_RESOURCE_GROUP_NAME: $(AKS_RESOURCE_GROUP_NAME)
+                      appNameSpace: $(appNameSpace)
+                      IMAGE_TAG: $(imageTag)
+                      env: dev
+                      tenantId: $(tenantId)
+                      vsts_override: "--set namespace=$(appNameSpace)"
+
+                  # APIM registration — one call per MCP server
+                  - template: templates/registerMcpApim.yaml
+                    parameters:
+                      mcpServerName: "servicenowautomation"
+                      backendName: "servicenowautomation-backend-dev"
+                      backendUrl: "https://caasnp4.bupa.com.au/servicenowautomation-mcp-dev"
+                      mcpDescription: "ServiceNowAutomation Model Context Protocol Server"
+                      env: dev
+                      APIMazSubsSvc: "BupaANZ-InfoSvcs-2-Test-VSTS"
+                      azureAudienceId: $(azureAudienceId)
+
+    - stage: TEST_Deploy
+      displayName: TEST Deploy MCP Server
+      condition: and(
+        ne(variables['Build.Reason'], 'PullRequest'),
+        eq('${{ parameters.env }}', 'test'))
+      dependsOn:
+        - Build
+      variables:
+        - name: "CLUSTER_NAME"
+          value: "nonprod4aks"
+        - name: "AKS_RESOURCE_GROUP_NAME"
+          value: "devops-caas-test-rg01"
+        - name: "appNameSpace"
+          value: "servicenowautomation-test-ns"
+        - name: "tenantId"
+          value: "fee9c112-179f-46e3-ab98-f8d58602cf19"
+      jobs:
+        - deployment: TEST_ServiceNowAutomation_MCP_Deploy
+          displayName: TEST ServiceNowAutomation MCP Deploy
+          environment: ServiceNowAutomation_test
+          strategy:
+            runOnce:
+              deploy:
+                steps:
+                  # AKS Helm deployment (runs once)
+                  - template: templates/deployMcpImage.yaml
+                    parameters:
+                      chartName: "servicenowautomation-mcp"
+                      azSubsSvc: "devops-cli-sp-caas-lz2-test"
+                      CLUSTER_NAME: $(CLUSTER_NAME)
+                      AKS_RESOURCE_GROUP_NAME: $(AKS_RESOURCE_GROUP_NAME)
+                      appNameSpace: $(appNameSpace)
+                      IMAGE_TAG: $(imageTag)
+                      env: test
+                      tenantId: $(tenantId)
+                      vsts_override: "--set namespace=$(appNameSpace)"
+
+                  # APIM registration — one call per MCP server
+                  - template: templates/registerMcpApim.yaml
+                    parameters:
+                      mcpServerName: "servicenowautomation"
+                      backendName: "servicenowautomation-backend-test"
+                      backendUrl: "https://caasnp4.bupa.com.au/servicenowautomation-mcp-test"
+                      mcpDescription: "ServiceNowAutomation Model Context Protocol Server"
+                      env: test
+                      APIMazSubsSvc: "BupaANZ-InfoSvcs-2-Test-VSTS"
+                      azureAudienceId: $(azureAudienceId)

@@ -1,0 +1,72 @@
+parameters:
+  - name: "chartName"
+  - name: "azSubsSvc"
+  - name: "CLUSTER_NAME"
+  - name: "AKS_RESOURCE_GROUP_NAME"
+  - name: "appNameSpace"
+  - name: "IMAGE_TAG"
+  - name: "env"
+  - name: "tenantId"
+    default: ""
+  - name: "vsts_override"
+
+steps:
+  - checkout: self
+    clean: true
+    persistCredentials: true
+
+  - script: |
+      echo "*** Deploying MCP Server Version: ${{parameters.IMAGE_TAG}}"
+      echo "*** Environment: ${{parameters.env}}"
+      echo "*** Namespace: ${{parameters.appNameSpace}}"
+    displayName: "Show Deployment Info"
+    failOnStderr: true
+
+  - task: HelmInstaller@1
+    inputs:
+      helmVersionToInstall: $(helmVersion)
+
+  - task: KubectlInstaller@0
+    displayName: "Install kubectl"
+
+  - task: AzureCLI@2
+    displayName: "Connect Cluster & Helm Deploy"
+    inputs:
+      azureSubscription: ${{parameters.azSubsSvc}}
+      scriptLocation: inlineScript
+      scriptType: bash
+      inlineScript: |
+        az aks get-credentials \
+          --resource-group ${{parameters.AKS_RESOURCE_GROUP_NAME}} \
+          --name ${{parameters.CLUSTER_NAME}} --overwrite-existing
+
+        kubectl config get-contexts
+        az aks install-cli
+        kubelogin convert-kubeconfig -l azurecli
+        helm upgrade -n ${{parameters.appNameSpace}} --install ${{parameters.chartName}}-${{parameters.env}} $(System.DefaultWorkingDirectory)/devops/deploy/helm/${{parameters.chartName}} \
+        -f $(System.DefaultWorkingDirectory)/devops/deploy/helm/${{parameters.chartName}}/gvalues-${{parameters.env}}.yaml \
+        --set image.tag=${{parameters.IMAGE_TAG}} \
+        --set environment=${{parameters.env}} \
+        --set adoRepoName="$(Build.Repository.Name)" \
+        --set adoBuildId="$(Build.BuildId)" \
+        --set adoPipelineId="$(System.DefinitionId)" \
+        --set adoTeamProject="$(System.TeamProject)" \
+        --set adoSourceBranchName="$(Build.SourceBranchName)" \
+        --set adoCommitId="$(Build.SourceVersion)" \
+        $env_vsts_override
+    env:
+      env_vsts_override: ${{ parameters.vsts_override }}
+
+  - task: AzureCLI@2
+    displayName: "Restart Deployment"
+    inputs:
+      azureSubscription: ${{parameters.azSubsSvc}}
+      scriptLocation: inlineScript
+      scriptType: bash
+      inlineScript: |
+        az aks get-credentials \
+          --resource-group ${{parameters.AKS_RESOURCE_GROUP_NAME}} \
+          --name ${{parameters.CLUSTER_NAME}} --overwrite-existing
+        kubectl config get-contexts
+        kubelogin convert-kubeconfig -l azurecli
+        kubectl rollout restart deployment ${{parameters.chartName}}-${{parameters.env}} -n ${{parameters.appNameSpace}}

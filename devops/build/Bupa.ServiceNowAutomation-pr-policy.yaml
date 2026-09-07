@@ -1,0 +1,43 @@
+trigger: none
+
+name: $(BuildDefinitionName).$(DayOfYear)$(Rev:.r)
+
+pool:
+  vmImage: "ubuntu-latest"
+
+variables:
+  - name: imageTag
+    value: $(Build.BuildId)
+  - name: projectName
+    value: "servicenowautomation-mcp"
+  - name: expName
+    value: "ServiceNowAutomation"
+  - name: repository
+    value: "$(expName)/$(projectName)"
+
+stages:
+  - stage: Build
+    displayName: Build MCP Image
+    jobs:
+      - job: BuildMcp
+        displayName: Build servicenowautomation-mcp image
+        pool: 'NextGen Containers'
+        steps:
+          - template: templates/buildMcpImage.yaml
+            parameters:
+              repository: $(repository)
+              projectName: $(projectName)
+              pushToProdAcr: false
+
+  - stage: SecurityScan
+    displayName: 'Security Scans'
+    dependsOn: Build
+    jobs:
+      - template: templates/security_scans.yaml
+        parameters:
+          sonarQubeProjectKey: 'ServiceNowAutomation_ServiceNowAutomation_ServiceNowAutomation'
+          dockerTestImageTag: 'servicenowautomation-sonar'
+          containerRegistry: 'ACR:TEST'
+          sonarQubeVariableGroup: 'SonarQubeVariables'
+          checkmarxProjectNamePostfix: 'servicenowautomation'
+          runCheckmarx: false

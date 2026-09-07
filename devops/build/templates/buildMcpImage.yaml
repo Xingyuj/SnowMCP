@@ -1,0 +1,60 @@
+parameters:
+  - name: "repository"
+  - name: "projectName"
+  - name: "pushToProdAcr"
+
+steps:
+  - checkout: self
+    fetchDepth: 0
+    persistCredentials: true
+    clean: true
+      
+  - script: |
+      curl -LsSf https://astral.sh/uv/install.sh | sh
+      echo "##vso[task.prependpath]$HOME/.local/bin"
+    displayName: 'Install uv'
+  
+  - script: |
+      cd src/servicenowautomation_mcp
+      if [ -f ".env.local" ]; then
+        cp .env.local .env
+      else
+        echo ".env.local not found in src/servicenowautomation_mcp"
+        exit 1
+      fi
+    displayName: 'Prepare env file'
+
+  - script: |
+      cd src/servicenowautomation_mcp
+      uv sync --frozen --extra dev
+    displayName: 'Install dependencies'
+
+  - script: |
+      cd src/servicenowautomation_mcp
+      uv run ruff check .
+    displayName: 'Linting'
+
+  - script: |
+      cd src/servicenowautomation_mcp
+      uv run python -m pytest
+    displayName: 'Testing'
+    condition: succeeded()
+
+  - task: Docker@2
+    displayName: Build - ${{ parameters.projectName  }}
+    condition: succeeded()
+    inputs:
+      containerRegistry: "ACR2:TEST"
+      repository: "${{ parameters.repository  }}"
+      command: "build"
+      Dockerfile: "Dockerfile-Mcp"
+      buildContext: "$(System.DefaultWorkingDirectory)"
+
+  - task: Docker@2
+    displayName: Push - ${{ parameters.projectName  }}
+    condition: succeeded()
+    inputs:
+      containerRegistry: "ACR2:TEST"
+      repository: "${{ parameters.repository  }}"
+      command: "push"
+      tags: $(imageTag)

@@ -1,0 +1,91 @@
+---
+parameters:
+  - name: sonarQubeProjectKey
+    type: string
+  - name: dockerTestImageTag
+    type: string
+  - name: containerRegistry
+    type: string
+  - name: sonarQubeVariableGroup
+    type: string
+  - name: checkmarxProjectNamePostfix
+    type: string
+  - name: runCheckmarx
+    type: boolean
+    default: true
+
+
+jobs:
+  - job: SonarScan
+    displayName: SonarQube Analysis
+    pool: 'NextGen Containers'
+    variables:
+      - group: '${{ parameters.sonarQubeVariableGroup  }}'
+      - name: SonarQubeProjectKey
+        value: '${{ parameters.sonarQubeProjectKey  }}'
+      - name: buildPlatform
+        value: 'Any CPU'
+      - name: buildConfiguration
+        value: 'Release'
+      - name: dockerTestImageTag
+        value: '${{ parameters.dockerTestImageTag  }}'
+      - name: dockerTestContainerName
+        value: 'testcontainer-$(Build.BuildId)'
+
+    steps:
+      - checkout: self
+        fetchDepth: 0
+        persistCredentials: true
+        displayName: 'Checkout with full git history for SonarQube analysis'
+
+      - task: Docker@2
+        displayName: 'Login to SonarQube base image registry'
+        inputs:
+          containerRegistry: '${{ parameters.containerRegistry }}'
+          command: 'login'
+
+      - task: Bash@3
+        displayName: Sonar Scan
+        inputs:
+          targetType: 'inline'
+          script: |
+            if [[ "$(Build.Reason)" == "Pull"* ]]; then
+                echo "***PR***"
+                var_pr_ReqID="sonar.pullrequest.key=$(System.PullRequest.PullRequestId)"
+                var_pr_srcBranch="sonar.pullrequest.branch=$(System.PullRequest.SourceBranch)"
+                var_pr_TargetBranch="sonar.pullrequest.base=$(System.PullRequest.targetBranch)"
+                
+                # Fetch the target branch ref so SonarQube can compare against it
+                echo "Fetching target branch: $(System.PullRequest.targetBranch)"
+                git fetch origin $(System.PullRequest.targetBranch):refs/remotes/origin/$(System.PullRequest.targetBranch) || true
+            else
+                echo "***Build***"
+                var_pr_ReqID="sonar.log.level=INFO"
+                var_pr_srcBranch="sonar.branch.name=$(Build.SourceBranchName)"
+                var_pr_TargetBranch="sonar.verbose=false"
+            fi
+            
+            # Use SonarQube-specific .dockerignore that includes .git folder
+            cp .dockerignore.sonar .dockerignore
+            cp src/servicenowautomation_mcp/.env.local .env
+            docker build \
+              --build-arg Azure_DevOps_Build_Id=$(Build.BuildId) \
+              --build-arg SQ_HOST=$(SonarQubeUrl) \
+              --build-arg SQ_TOKEN=$(AuthKey) \
+              --build-arg SQ_PROJECT_KEY=$(SonarQubeProjectKey) \
+              --build-arg var_pr_key=$var_pr_ReqID \
+              --build-arg var_pr_src=$var_pr_srcBranch \
+              --build-arg var_pr_dest=$var_pr_TargetBranch \
+              -f ./Dockerfile-SonarQube \
+              -t $(dockerTestImageTag):$(Build.BuildId) \
+              .
+  - ${{ if eq(parameters.runCheckmarx, true) }}:
+    - job: RunCheckmarxScan
+      displayName: 'Run Checkmarx Scan'
+      pool: Azure Pipelines
+      steps:
+        - template: Checkmarx/CheckmarxScan.yml@ApplicationSecurityTemplates
+          parameters:
+            branchName: $(Build.SourceBranchName)
+            ScanFilters: '**/**'
+            CheckmarxProjectNamePostfix: ${{ parameters.checkmarxProjectNamePostfix  }}
