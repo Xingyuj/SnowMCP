@@ -44,7 +44,7 @@ spec:
             - name: ENVIRONMENT
               value: {{ .Values.inf.conf.environment | quote }}
             - name: PATH_BASE
-              value: "{{ .Values.pathBase }}/{{ .Values.inf.conf.environment }}"
+              value: "{{ .Values.pathBase }}-{{ .Values.inf.conf.environment }}"
           envFrom:
             - configMapRef:
                 name: {{ $cfgname }}  
