@@ -138,7 +138,7 @@ steps:
                         <validate-jwt header-name="Authorization" failed-validation-httpcode="401" failed-validation-error-message="JWT validation failed">
                             <openid-config url="https://login.microsoftonline.com/fee9c112-179f-46e3-ab98-f8d58602cf19/.well-known/openid-configuration" />
                             <audiences>
-                                <audience>$(azureAudienceId)</audience>
+                                <audience>${{ parameters.azureAudienceId }}</audience>
                             </audiences>
                             <issuers>
                                 <issuer>https://login.microsoftonline.com/fee9c112-179f-46e3-ab98-f8d58602cf19/v2.0</issuer>
