@@ -22,4 +22,4 @@ spec:
       - destination:
           host: {{ $name }}-svc
           port:
-            number: 8080
+            number: {{ .Values.service.port }}
