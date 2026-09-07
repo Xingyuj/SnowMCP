@@ -78,7 +78,7 @@ RUN if [ -n "$AZURE_ARTIFACTS_TOKEN" ]; then \
         --cov-report=html:${TEST_DIR}/servicenowautomation-mcp/coverage-html \
         --cov-report=term \
         --junitxml=${TEST_DIR}/servicenowautomation-mcp/test-results.xml \
-        tests/ || echo "MCP tests completed with errors"
+        tests/
 
 
 
