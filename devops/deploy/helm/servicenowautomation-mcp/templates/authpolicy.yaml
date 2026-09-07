@@ -1,7 +1,8 @@
 {{- $name := include "servicenowautomation-mcp.fullname" . -}}
 {{- $authPolicy := include "servicenowautomation-mcp.authpolicy" . -}}
 
-# Resource 1: RequestAuthentication
+{{- if eq (lower (toString .Values.inf.conf.authpolicy)) "true" }}
+# Restrict inbound service traffic.
 ---
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
@@ -12,7 +13,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      app.kubernetes.io/instance: {{ $name }}
+      {{- include "servicenowautomation-mcp.selectorLabels" . | nindent 6 }}
   action: ALLOW
   rules:
   - from:
@@ -23,3 +24,4 @@ spec:
     # to:
     # - operation:
     #     methods: ["GET"]
+{{- end }}
