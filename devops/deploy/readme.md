@@ -69,7 +69,7 @@ The CI pipeline (`devops/build/templates/deployMcpImage.yaml`) performs this sam
 
 ## Health Checks
 
-`probes.liveness` / `probes.readiness` in `values.yaml` are disabled by default (`enabled: false`). If enabled, set their `path` to the FastMCP server's actual health endpoints — `/mcp/health`, `/mcp/ready`, `/mcp/live` (see `src/servicenowautomation_mcp/README.md`) — not the `/api/health` default, which is for the FastAPI variant of this template.
+HTTP probes are enabled by default: liveness uses `/mcp/live` and readiness uses `/mcp/health`. Readiness returns 503 until the MCP lifespan has started. `/mcp/ready` is also available as a readiness alias. These HTTP routes are separate from the MCP health tools.
 
 ## Troubleshooting
 

@@ -90,6 +90,7 @@ async def health_live(request: Request) -> JSONResponse:
 
 
 @mcp.custom_route("/mcp/health", methods=["GET"])
+@mcp.custom_route("/mcp/ready", methods=["GET"])
 async def health_ready(request: Request) -> JSONResponse:
     runtime_state = snapshot_runtime_state()
     is_ready = runtime_state["lifespan_started"]
