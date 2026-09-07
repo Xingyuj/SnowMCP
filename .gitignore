@@ -156,3 +156,9 @@ Thumbs.db
 *.egg-info/
 dist/
 build/
+
+# Version deployment configuration despite generic build/env exclusions.
+!devops/build/
+!devops/build/**
+!devops/IAC/Terraform/env/
+!devops/IAC/Terraform/env/*.tfvars
