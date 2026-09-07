@@ -74,10 +74,12 @@ stages:
     - stage: DEV_Deploy
       displayName: DEV Deploy MCP Server
       condition: and(
+        succeeded(),
         ne(variables['Build.Reason'], 'PullRequest'),
         eq('${{ parameters.env }}', 'dev'))
       dependsOn:
         - Build
+        - SecurityScan
       variables:
         - name: "CLUSTER_NAME"
           value: "nonprod4aks"
@@ -122,10 +124,12 @@ stages:
     - stage: TEST_Deploy
       displayName: TEST Deploy MCP Server
       condition: and(
+        succeeded(),
         ne(variables['Build.Reason'], 'PullRequest'),
         eq('${{ parameters.env }}', 'test'))
       dependsOn:
         - Build
+        - SecurityScan
       variables:
         - name: "CLUSTER_NAME"
           value: "nonprod4aks"
