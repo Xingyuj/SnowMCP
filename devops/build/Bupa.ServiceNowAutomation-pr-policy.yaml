@@ -13,7 +13,7 @@ variables:
   - name: expName
     value: "ServiceNowAutomation"
   - name: repository
-    value: "$(expName)/$(projectName)"
+    value: "servicenowautomation/$(projectName)"
 
 stages:
   - stage: Build

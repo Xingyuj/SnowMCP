@@ -26,7 +26,7 @@ This directory contains the Azure DevOps build pipeline configuration for the Se
 - `helmVersion`: `3.1.2`
 - `expName`: `ServiceNowAutomation`
 - `projectName`: `servicenowautomation-mcp`
-- `repository`: `$(expName)/$(projectName)`
+- `repository`: `servicenowautomation/$(projectName)` (matches the Helm image repository)
 
 ## Prerequisites
 
