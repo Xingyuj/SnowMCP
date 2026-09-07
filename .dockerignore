@@ -1,0 +1,12 @@
+# Keep host environments and generated files out of application images.
+.git/
+**/.venv/
+**/__pycache__/
+**/.pytest_cache/
+**/.ruff_cache/
+**/*.pyc
+**/*.egg-info/
+**/.env
+**/.env.*
+**/coverage-html/
+**/testresults/

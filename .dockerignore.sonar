@@ -8,3 +8,7 @@
 **/testresults/
 .idea/
 .vscode/
+
+# Tests use explicit CI configuration, not copied dotenv files.
+**/.env
+**/.env.*
