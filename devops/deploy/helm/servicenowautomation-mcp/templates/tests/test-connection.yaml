@@ -11,5 +11,5 @@ spec:
     - name: wget
       image: busybox
       command: ['wget']
-      args: ['{{ include "servicenowautomation-mcp.fullname" . }}:{{ .Values.service.port }}']
+      args: ['http://{{ include "servicenowautomation-mcp.fullname" . }}-svc:{{ .Values.service.port }}/mcp/ready']
   restartPolicy: Never
