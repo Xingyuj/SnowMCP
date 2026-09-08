@@ -166,6 +166,32 @@ async def test_attachment_size_limit():
 
 
 @pytest.mark.asyncio
+async def test_attachment_retries_transient_response():
+    attempts = 0
+
+    async def handler(_: httpx.Request) -> httpx.Response:
+        nonlocal attempts
+        attempts += 1
+        return httpx.Response(503 if attempts == 1 else 200, content=b"retried")
+
+    attachment = await client(handler, transient_retry_attempts=1).get_attachment("a", "b")
+
+    assert attempts == 2
+    assert base64.b64decode(attachment.content_base64) == b"retried"
+
+
+@pytest.mark.asyncio
+async def test_attachment_timeout_mapping():
+    async def handler(_: httpx.Request) -> httpx.Response:
+        raise httpx.ReadTimeout("timeout")
+
+    with pytest.raises(KnowledgeMcpError) as exc:
+        await client(handler).get_attachment("a", "b")
+
+    assert exc.value.code == ErrorCode.UPSTREAM_TIMEOUT
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("status", "code"),
     [

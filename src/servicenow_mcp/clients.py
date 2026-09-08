@@ -20,6 +20,7 @@ from .models import (
 from .tls import system_ssl_context
 
 SERVICE_NOW_UNAVAILABLE = "ServiceNow is unavailable"
+SERVICE_NOW_TIMEOUT = "ServiceNow request timed out"
 
 
 class KnowledgeBackend(ABC):
@@ -118,7 +119,7 @@ class ServiceNowKnowledgeApiClient(KnowledgeBackend):
     @staticmethod
     def _request_failure(exc: httpx.RequestError) -> KnowledgeMcpError:
         if isinstance(exc, httpx.TimeoutException):
-            return KnowledgeMcpError(ErrorCode.UPSTREAM_TIMEOUT, "ServiceNow request timed out")
+            return KnowledgeMcpError(ErrorCode.UPSTREAM_TIMEOUT, SERVICE_NOW_TIMEOUT)
         return KnowledgeMcpError(ErrorCode.UPSTREAM_UNAVAILABLE, SERVICE_NOW_UNAVAILABLE)
 
     @staticmethod
@@ -327,55 +328,65 @@ class ServiceNowKnowledgeApiClient(KnowledgeBackend):
         )
         attempts = self.config.transient_retry_attempts + 1
         for attempt in range(attempts):
+            final_attempt = attempt + 1 == attempts
             try:
-                async with self.http_client.stream(
-                    "GET", path, headers=await self._headers(authorization, "*/*")
-                ) as response:
-                    if (
-                        response.status_code == 429 or response.status_code >= 500
-                    ) and attempt + 1 < attempts:
-                        await response.aread()
-                        await asyncio.sleep(self.config.retry_backoff_seconds * (2**attempt))
-                        continue
-                    self._raise_for_status(response, "Knowledge attachment")
-                    declared_size = response.headers.get("Content-Length")
-                    if declared_size and int(declared_size) > self.config.max_attachment_bytes:
-                        raise KnowledgeMcpError(
-                            ErrorCode.PAYLOAD_TOO_LARGE,
-                            "Attachment exceeds the configured size limit",
-                        )
-                    data = bytearray()
-                    async for chunk in response.aiter_bytes():
-                        data.extend(chunk)
-                        if len(data) > self.config.max_attachment_bytes:
-                            raise KnowledgeMcpError(
-                                ErrorCode.PAYLOAD_TOO_LARGE,
-                                "Attachment exceeds the configured size limit",
-                            )
-                    return KnowledgeAttachment(
-                        article_id=article_id,
-                        attachment_id=attachment_id,
-                        filename=_filename(response.headers.get("Content-Disposition")),
-                        content_type=response.headers.get(
-                            "Content-Type", "application/octet-stream"
-                        ).split(";", 1)[0],
-                        size_bytes=len(data),
-                        content_base64=base64.b64encode(data).decode("ascii"),
-                    )
+                attachment = await self._download_attachment(
+                    path,
+                    article_id,
+                    attachment_id,
+                    authorization,
+                    retry_allowed=not final_attempt,
+                )
             except KnowledgeMcpError:
                 raise
-            except httpx.TimeoutException as exc:
-                if attempt + 1 == attempts:
-                    raise KnowledgeMcpError(
-                        ErrorCode.UPSTREAM_TIMEOUT, "ServiceNow request timed out"
-                    ) from exc
-            except httpx.RequestError as exc:
-                if attempt + 1 == attempts:
-                    raise KnowledgeMcpError(
-                        ErrorCode.UPSTREAM_UNAVAILABLE, SERVICE_NOW_UNAVAILABLE
-                    ) from exc
+            except (httpx.TimeoutException, httpx.RequestError) as exc:
+                if final_attempt:
+                    raise self._request_failure(exc) from exc
+            else:
+                if attachment is not None:
+                    return attachment
             await asyncio.sleep(self.config.retry_backoff_seconds * (2**attempt))
         raise AssertionError("attachment retry loop exited unexpectedly")
+
+    async def _download_attachment(
+        self,
+        path: str,
+        article_id: str,
+        attachment_id: str,
+        authorization: AuthorizationContext | None,
+        *,
+        retry_allowed: bool,
+    ) -> KnowledgeAttachment | None:
+        async with self.http_client.stream(
+            "GET", path, headers=await self._headers(authorization, "*/*")
+        ) as response:
+            if retry_allowed and self._is_retryable(response):
+                await response.aread()
+                return None
+            self._raise_for_status(response, "Knowledge attachment")
+            data = await self._read_attachment_body(response)
+            return KnowledgeAttachment(
+                article_id=article_id,
+                attachment_id=attachment_id,
+                filename=_filename(response.headers.get("Content-Disposition")),
+                content_type=response.headers.get(
+                    "Content-Type", "application/octet-stream"
+                ).split(";", 1)[0],
+                size_bytes=len(data),
+                content_base64=base64.b64encode(data).decode("ascii"),
+            )
+
+    async def _read_attachment_body(self, response: httpx.Response) -> bytearray:
+        size_error = "Attachment exceeds the configured size limit"
+        declared_size = response.headers.get("Content-Length")
+        if declared_size and int(declared_size) > self.config.max_attachment_bytes:
+            raise KnowledgeMcpError(ErrorCode.PAYLOAD_TOO_LARGE, size_error)
+        data = bytearray()
+        async for chunk in response.aiter_bytes():
+            data.extend(chunk)
+            if len(data) > self.config.max_attachment_bytes:
+                raise KnowledgeMcpError(ErrorCode.PAYLOAD_TOO_LARGE, size_error)
+        return data
 
 
 def _optional_string(value: Any) -> str | None:
