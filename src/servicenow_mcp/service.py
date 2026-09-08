@@ -11,6 +11,7 @@ from .models import (
     KnowledgeSearchResponse,
 )
 
+# Accept a short, non-blank ServiceNow identifier while rejecting URL path/query delimiters.
 _IDENTIFIER = re.compile(r"^[^\s/\\?#]{1,255}$")
 
 
