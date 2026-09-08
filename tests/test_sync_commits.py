@@ -81,16 +81,76 @@ class SyncCommitsTest(unittest.TestCase):
         self.assertEqual((self.target / "second.txt").read_text(), "second\n")
         self.assertEqual(self.git(self.target, "remote"), "")
 
+    def assert_local_commit(self, ref, source):
+        identity = self.git(self.target, "show", "-s", "--format=%an|%ae|%cn|%ce", ref).strip()
+        self.assertEqual(
+            identity, "Target User|target@example.test|Target User|target@example.test"
+        )
+        self.assertEqual(
+            self.git(self.target, "show", "-s", "--format=%B", ref),
+            self.git(self.source, "show", "-s", "--format=%B", source),
+        )
+
+    def configure_target_identity(self):
+        self.git(self.target, "config", "user.name", "Target User")
+        self.git(self.target, "config", "user.email", "target@example.test")
+
+    def test_local_identity_and_preview(self):
+        self.configure_target_identity()
+        preview = self.sync("--identity", "local")
+        self.assertIn("Target User <target@example.test>", preview.stdout)
+        self.assertEqual(self.git(self.target, "rev-parse", "HEAD").strip(), self.original)
+        self.sync("--identity", "local", "--apply")
+        self.assert_local_commit("HEAD~1", self.first)
+        self.assert_local_commit("HEAD", self.tip)
+        self.assertEqual(self.git(self.source, "rev-parse", "HEAD").strip(), self.tip)
+
+    def test_local_identity_survives_conflict_continue(self):
+        self.configure_target_identity()
+        self.conflict("--identity", "local")
+        self.git(self.target, "config", "user.name", "Changed During Conflict")
+        (self.target / "file.txt").write_text("resolved\n")
+        self.git(self.target, "add", "file.txt")
+        self.tool("--continue")
+        self.assert_local_commit("HEAD~1", self.first)
+        self.assert_local_commit("HEAD", self.tip)
+
+    def test_local_identity_skip(self):
+        self.configure_target_identity()
+        self.conflict("--identity", "local")
+        self.tool("--skip")
+        self.assert_local_commit("HEAD", self.tip)
+
+    def test_local_identity_abort(self):
+        self.configure_target_identity()
+        self.conflict("--identity", "local")
+        self.tool("--abort")
+        self.assertEqual(self.git(self.target, "rev-parse", "HEAD"), self.before_conflict)
+
+    def test_local_identity_requires_configuration(self):
+        self.git(self.target, "config", "--unset", "user.email")
+        result = self.sync("--identity", "local", "--apply", success=False)
+        self.assertIn("user.email", result.stderr)
+        self.assertEqual(self.git(self.target, "rev-parse", "HEAD").strip(), self.original)
+
+    def test_preserve_keeps_author_but_uses_target_committer(self):
+        self.configure_target_identity()
+        self.sync("--identity", "preserve", "--apply")
+        self.assertEqual(
+            self.git(self.target, "show", "-s", "--format=%an|%ae|%cn|%ce", "HEAD~1").strip(),
+            "Original Author|author@example.test|Target User|target@example.test",
+        )
+
     def test_dirty_target_is_rejected(self):
         (self.target / "untracked.txt").write_text("keep")
         self.assertIn("uncommitted or untracked", self.sync("--apply", success=False).stderr)
         self.assertEqual((self.target / "untracked.txt").read_text(), "keep")
 
-    def conflict(self):
+    def conflict(self, *args):
         (self.target / "file.txt").write_text("target change\n")
         self.git(self.target, "commit", "-am", "Target edit")
         self.before_conflict = self.git(self.target, "rev-parse", "HEAD")
-        self.sync("--apply", success=False)
+        self.sync("--apply", *args, success=False)
 
     def test_conflict_continue(self):
         self.conflict()

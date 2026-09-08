@@ -13,14 +13,20 @@ class SyncError(Exception):
     pass
 
 
-def git(repo, *args, check=True, input_text=None):
+def git(repo, *args, check=True, input_text=None, identity=None):
+    env = {**os.environ, "GIT_EDITOR": "true"}
+    if identity:
+        for role in ("AUTHOR", "COMMITTER"):
+            env[f"GIT_{role}_NAME"] = identity["name"]
+            env[f"GIT_{role}_EMAIL"] = identity["email"]
+            env.pop(f"GIT_{role}_DATE", None)
     result = subprocess.run(
         check=False,
         args=["git", "-C", str(repo), *args],
         input=input_text,
         text=True,
         capture_output=True,
-        env={**os.environ, "GIT_EDITOR": "true"},
+        env=env,
     )
     if check and result.returncode:
         raise SyncError(result.stderr.strip() or result.stdout.strip())
@@ -47,6 +53,42 @@ def resolve(repo, ref):
     return output(repo, "rev-parse", "--verify", "--end-of-options", ref + "^{commit}")
 
 
+def local_identity(target):
+    identity = {}
+    for key, config in (("name", "user.name"), ("email", "user.email")):
+        value = git(target, "config", "--get", config, check=False).stdout.strip()
+        if not value:
+            raise SyncError(
+                f"Local identity requires {config}; configure it in the target repository."
+            )
+        identity[key] = value
+    return identity
+
+
+def with_local_author(target, sha, identity):
+    """Create an unreferenced commit with the same patch/message and a local author.
+
+    Cherry-picking these objects keeps the native sequencer's conflict, skip and
+    abort semantics without amending successful commits after the transfer.
+    """
+    tree = output(target, "rev-parse", sha + "^{tree}")
+    parents = output(target, "rev-list", "--parents", "-n", "1", sha).split()[1:]
+    parent_args = [arg for parent in parents for arg in ("-p", parent)]
+    message = git(target, "show", "-s", "--format=%B", sha).stdout
+    # show appends a record terminator after the message's own trailing newline.
+    message = message.removesuffix("\n")
+    return git(
+        target,
+        "-c",
+        "commit.gpgsign=false",
+        "commit-tree",
+        tree,
+        *parent_args,
+        input_text=message,
+        identity=identity,
+    ).stdout.strip()
+
+
 def run(args):
     target = checkout(args.target)
     state_path = git_path(target, "mirror-sync.json")
@@ -54,7 +96,13 @@ def run(args):
         if not state_path.exists():
             raise SyncError("No mirror sync is in progress in this checkout.")
         state = json.loads(state_path.read_text())
-        result = git(target, "cherry-pick", "--" + args.action, check=False)
+        result = git(
+            target,
+            "cherry-pick",
+            "--" + args.action,
+            check=False,
+            identity=state.get("local_identity"),
+        )
         print(result.stdout, end="")
         if result.returncode:
             raise SyncError(result.stderr.strip() or "Git could not resume the operation.")
@@ -114,6 +162,16 @@ def run(args):
         if git(target, "merge-base", "--is-ancestor", sha, "HEAD", check=False).returncode == 0:
             raise SyncError(f"Commit {sha} is already in target history.")
 
+    identity_mode = args.identity or "preserve"
+    identity = local_identity(target) if identity_mode == "local" else None
+    print(
+        f"Identity: {identity_mode}"
+        + (
+            f" ({identity['name']} <{identity['email']}>)"
+            if identity
+            else " (source author; target committer)"
+        )
+    )
     print(
         f"Source: {source}\nTarget: {target}\nBranch: {output(target, 'branch', '--show-current')}"
     )
@@ -135,11 +193,27 @@ def run(args):
         str(source),
         *commits,
     )
+    picked_commits = (
+        [with_local_author(target, sha, identity) for sha in commits] if identity else commits
+    )
     state_path.write_text(
-        json.dumps({"original_head": original_head, "source": str(source), "commits": commits})
+        json.dumps(
+            {
+                "original_head": original_head,
+                "source": str(source),
+                "commits": commits,
+                "identity": identity_mode,
+                "local_identity": identity,
+            }
+        )
     )
     result = git(
-        target, "cherry-pick", "--stdin", input_text="\n".join(commits) + "\n", check=False
+        target,
+        "cherry-pick",
+        "--stdin",
+        input_text="\n".join(picked_commits) + "\n",
+        check=False,
+        identity=identity,
     )
     print(result.stdout, end="")
     if result.returncode:
@@ -155,7 +229,7 @@ def run(args):
         )
     state_path.unlink()
     print(
-        f"Synced {len(commits)} commits. Messages and authors preserved; commit hashes may change. No push performed."
+        f"Synced {len(commits)} commits. Messages preserved; identity mode: {identity_mode}; commit hashes may change. No push performed."
     )
 
 
@@ -173,11 +247,18 @@ def main():
     parser.add_argument(
         "--apply", action="store_true", help="Apply commits; default is preview only"
     )
+    parser.add_argument(
+        "--identity",
+        choices=("preserve", "local"),
+        help="preserve (default): retain source author; local: use target user.name/email for author and committer",
+    )
     actions = parser.add_mutually_exclusive_group()
     for action in ("continue", "skip", "abort"):
         actions.add_argument("--" + action, dest="action", action="store_const", const=action)
     args = parser.parse_args()
-    if args.action and (args.source or args.commit_range or args.commits or args.apply):
+    if args.action and (
+        args.source or args.commit_range or args.commits or args.apply or args.identity
+    ):
         parser.error("Resume actions accept only --target.")
     try:
         run(args)
