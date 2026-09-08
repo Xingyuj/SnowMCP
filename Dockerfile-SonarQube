@@ -41,16 +41,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Create test results directory
-
-
-RUN mkdir -p ${TEST_DIR}/servicenowautomation-mcp ${TEST_DIR}/servicenow-mcp
-
-
-
-# Create a dedicated non-root user for running tooling (aligned with nexus-api)
-RUN groupadd --system ServiceNowAutomation-ai-factory && useradd --system --create-home --gid ServiceNowAutomation-ai-factory --shell /bin/bash ServiceNowAutomation-ai-factory && \
-    chown -R ServiceNowAutomation-ai-factory:ServiceNowAutomation-ai-factory ${PROJECT_DIR} ${TEST_DIR}
+# Create test result directories and a dedicated non-root user for running tooling
+RUN mkdir -p "${TEST_DIR}/servicenowautomation-mcp" "${TEST_DIR}/servicenow-mcp" \
+    && groupadd --system ServiceNowAutomation-ai-factory \
+    && useradd --system --create-home --gid ServiceNowAutomation-ai-factory --shell /bin/bash ServiceNowAutomation-ai-factory \
+    && chown -R ServiceNowAutomation-ai-factory:ServiceNowAutomation-ai-factory "${PROJECT_DIR}" "${TEST_DIR}"
 
 USER ServiceNowAutomation-ai-factory
 
@@ -70,10 +65,10 @@ RUN if [ -n "$AZURE_ARTIFACTS_TOKEN" ]; then \
     && echo "=== Running MCP Tests ===" \
     && PYTHONPATH="${MCP_DIR}" uv run pytest \
         --cov=. \
-        --cov-report=xml:${TEST_DIR}/servicenowautomation-mcp/coverage.xml \
-        --cov-report=html:${TEST_DIR}/servicenowautomation-mcp/coverage-html \
+        "--cov-report=xml:${TEST_DIR}/servicenowautomation-mcp/coverage.xml" \
+        "--cov-report=html:${TEST_DIR}/servicenowautomation-mcp/coverage-html" \
         --cov-report=term \
-        --junitxml=${TEST_DIR}/servicenowautomation-mcp/test-results.xml \
+        "--junitxml=${TEST_DIR}/servicenowautomation-mcp/test-results.xml" \
         tests/
 
 # ==========================================
@@ -83,9 +78,9 @@ WORKDIR ${PROJECT_DIR}
 RUN uv sync --frozen --no-cache --extra dev \
     && PYTHONPATH="${PROJECT_DIR}/src" uv run pytest \
         --cov=src/servicenow_mcp \
-        --cov-report=xml:${TEST_DIR}/servicenow-mcp/coverage.xml \
+        "--cov-report=xml:${TEST_DIR}/servicenow-mcp/coverage.xml" \
         --cov-report=term \
-        --junitxml=${TEST_DIR}/servicenow-mcp/test-results.xml \
+        "--junitxml=${TEST_DIR}/servicenow-mcp/test-results.xml" \
         tests/
 # ==========================================
 # SONARQUBE SCAN - Full Codebase Analysis
