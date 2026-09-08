@@ -10,12 +10,8 @@ ARG Azure_DevOps_Build_Id=vsts-overide
 ARG AZURE_ARTIFACTS_TOKEN
 
 ENV PROJECT_DIR=/workspace \
-
-
-MCP_DIR=/workspace/src/servicenowautomation_mcp \
-
-
-TEST_DIR=/src/testresults
+    MCP_DIR=/workspace/src/servicenowautomation_mcp \
+    TEST_DIR=/src/testresults
 
 # Copy the application into the container
 COPY . ${PROJECT_DIR}
@@ -104,11 +100,8 @@ RUN sonar-scanner \
     -D${var_pr_src} \
     -D${var_pr_key} \
     -D${var_pr_dest} \
-
-
     -Dsonar.python.coverage.reportPaths="/src/testresults/servicenowautomation-mcp/coverage.xml" \
-
-
+    -Dsonar.python.version=3.12 \
     -Dsonar.exclusions=**/scripts/**,**/tests/**,**/pdb.yaml,**/devops/**,**/*.spec.ts,**/*.spec.tsx \
     -Dsonar.test.exclusions=**/scripts/**,**/tests/**,**/devops/**,**/*.spec.ts,**/*.spec.tsx \
     -Dsonar.qualitygate.wait=true
