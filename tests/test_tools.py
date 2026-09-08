@@ -1,6 +1,11 @@
+import asyncio
+import time
+from concurrent.futures import ThreadPoolExecutor
+
 from fastmcp import Client
 from fastmcp.server.auth import AccessToken, AuthContext, run_auth_checks
 
+import servicenow_mcp.server as server_module
 from servicenow_mcp.auth import AuthorizationContext
 from servicenow_mcp.clients import KnowledgeBackend
 from servicenow_mcp.config import ServiceNowKnowledgeConfig
@@ -138,3 +143,29 @@ async def test_every_tool_requires_its_own_scope_when_apim_auth_is_enabled():
         )
         assert await run_auth_checks(tool.auth, allowed)
         assert not await run_auth_checks(tool.auth, denied)
+
+
+def test_concurrent_first_calls_build_one_service(monkeypatch):
+    config = ServiceNowKnowledgeConfig(servicenow_base_url=TEST_SERVICENOW_BASE_URL)
+    service = KnowledgeService(ToolClient(), config)
+    build_count = 0
+
+    def slow_build_service(_config):
+        nonlocal build_count
+        time.sleep(0.05)
+        build_count += 1
+        return service, object()
+
+    monkeypatch.setattr(server_module, "build_service", slow_build_service)
+    server = create_mcp(config_provider=lambda: config)
+    tool = asyncio.run(server._local_provider.get_tool("search_knowledge"))
+    assert tool is not None
+
+    def call_search():
+        return asyncio.run(tool.run({"query": "access"}))
+
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        results = list(executor.map(lambda _: call_search(), range(8)))
+
+    assert len(results) == 8
+    assert build_count == 1

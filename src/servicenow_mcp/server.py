@@ -1,6 +1,7 @@
 import logging
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
+from threading import Lock
 
 from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
@@ -73,6 +74,7 @@ def create_mcp(
 ) -> FastMCP:
     config = config_provider()
     state: dict[str, object] = {"service": service}
+    service_lock = Lock()
 
     @asynccontextmanager
     async def lifespan(_: FastMCP) -> AsyncIterator[dict[str, object]]:
@@ -97,10 +99,14 @@ def create_mcp(
         current = state.get("service")
         if isinstance(current, KnowledgeService):
             return current
-        current, client = build_service(config)
-        state["service"] = current
-        state["owned_client"] = client
-        return current
+        with service_lock:
+            current = state.get("service")
+            if isinstance(current, KnowledgeService):
+                return current
+            current, client = build_service(config)
+            state["service"] = current
+            state["owned_client"] = client
+            return current
 
     @server.tool(
         description=(
