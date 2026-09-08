@@ -80,11 +80,8 @@ RUN if [ -n "$AZURE_ARTIFACTS_TOKEN" ]; then \
 # ServiceNow Knowledge MCP - Python Tests & Coverage
 # ==========================================
 WORKDIR ${PROJECT_DIR}
-RUN uv pip install \
-        --python ${MCP_DIR}/.venv/bin/python \
-        --no-cache \
-        --editable ".[dev]" \
-    && PYTHONPATH="${PROJECT_DIR}/src" ${MCP_DIR}/.venv/bin/python -m pytest \
+RUN uv sync --frozen --no-cache --extra dev \
+    && PYTHONPATH="${PROJECT_DIR}/src" uv run pytest \
         --cov=src/servicenow_mcp \
         --cov-report=xml:${TEST_DIR}/servicenow-mcp/coverage.xml \
         --cov-report=term \

@@ -40,12 +40,10 @@ table access or mutation capabilities.
 ```bash
 git clone https://github.com/Xingyuj/SnowMCP.git
 cd SnowMCP
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -e .
+uv sync --frozen
 ```
 
-Python 3.11 or newer is required.
+Python 3.11 or newer and the `uv` package manager are required.
 
 ### 2. Configure ServiceNow
 
@@ -322,12 +320,10 @@ copy-ready commands, and troubleshooting.
 ## Development
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -e '.[dev]'
+uv sync --frozen --extra dev
 
-pytest
-ruff format --check src tests
-ruff check src tests
-mypy src
+uv run pytest
+uv run ruff format --check src tests
+uv run ruff check src tests
+uv run mypy src
 ```

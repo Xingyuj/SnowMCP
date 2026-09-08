@@ -159,11 +159,10 @@ Confirm that the Python virtual environment exists:
 .venv/bin/python --version
 ```
 
-If the virtual environment does not exist, create it and install the project:
+If the virtual environment does not exist, create it from the locked dependencies:
 
 ```bash
-python3 -m venv .venv
-.venv/bin/python -m pip install -e '.[dev]'
+uv sync --frozen --extra dev
 ```
 
 ## 2. Configure ServiceNow
@@ -508,8 +507,8 @@ enterprise-managed root certificates. Reinstall the project after pulling depend
 then restart the MCP server:
 
 ```bash
-python -m pip install -e '.[dev]'
-python -m servicenow_mcp.server
+uv sync --frozen --extra dev
+uv run python -m servicenow_mcp.server
 ```
 
 If verification still fails, confirm with the corporate security or network team that the TLS
