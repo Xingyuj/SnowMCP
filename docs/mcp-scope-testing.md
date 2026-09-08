@@ -18,15 +18,16 @@ intentionally does not repeat cryptographic token validation.
 
 ## Tool scopes
 
-| Tool | Default required scope |
+| Tool | Required scope |
 | --- | --- |
 | `search_knowledge` | `knowledge.search` |
 | `list_knowledge_categories` | `knowledge.category.read` |
 | `get_knowledge_article` | `knowledge.article.read` |
 | `get_knowledge_attachment` | `knowledge.attachment.read` |
 
-The names can be changed with `MCP_SEARCH_SCOPE`, `MCP_CATEGORY_READ_SCOPE`,
-`MCP_ARTICLE_READ_SCOPE`, and `MCP_ATTACHMENT_READ_SCOPE`.
+These scopes are part of the MCP endpoint's authorization contract and are fixed in
+`src/servicenow_mcp/scopes.py`. Changing the contract requires a reviewed code change rather than
+an environment override.
 
 The server reads subjects from `oid` and then `sub` by default. It combines scopes from `scp`,
 `scope`, and `roles`, supporting both delegated scopes and application roles. Override the claim
@@ -39,11 +40,6 @@ different validated token shape.
 APIM_AUTH_ENABLED=true
 APIM_SCOPE_CLAIM_NAMES=scp,scope,roles
 APIM_SUBJECT_CLAIM_NAMES=oid,sub
-
-MCP_SEARCH_SCOPE=knowledge.search
-MCP_CATEGORY_READ_SCOPE=knowledge.category.read
-MCP_ARTICLE_READ_SCOPE=knowledge.article.read
-MCP_ATTACHMENT_READ_SCOPE=knowledge.attachment.read
 ```
 
 APIM must preserve the user bearer token after validation so the MCP server can extract the

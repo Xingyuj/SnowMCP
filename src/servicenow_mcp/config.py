@@ -18,10 +18,6 @@ class ServiceNowKnowledgeConfig(BaseSettings):
     apim_auth_enabled: bool = False
     apim_scope_claim_names: str = "scp,scope,roles"
     apim_subject_claim_names: str = "oid,sub"
-    mcp_search_scope: str = "knowledge.search"
-    mcp_category_read_scope: str = "knowledge.category.read"
-    mcp_article_read_scope: str = "knowledge.article.read"
-    mcp_attachment_read_scope: str = "knowledge.attachment.read"
     servicenow_api_version: str | None = None
     servicenow_knowledge_base: str | None = None
     servicenow_language: str | None = None
@@ -99,15 +95,6 @@ class ServiceNowKnowledgeConfig(BaseSettings):
             return
         if not self.apim_scope_claims or not self.apim_subject_claims:
             raise ValueError("APIM scope and subject claim name lists must be non-empty")
-        if not all(
-            (
-                self.mcp_search_scope.strip(),
-                self.mcp_category_read_scope.strip(),
-                self.mcp_article_read_scope.strip(),
-                self.mcp_attachment_read_scope.strip(),
-            )
-        ):
-            raise ValueError("Every MCP tool scope must be non-empty")
 
 
 @lru_cache

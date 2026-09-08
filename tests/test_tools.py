@@ -10,6 +10,12 @@ from servicenow_mcp.models import (
     KnowledgeCategory,
     KnowledgeSearchCandidate,
 )
+from servicenow_mcp.scopes import (
+    ARTICLE_READ_SCOPE,
+    ATTACHMENT_READ_SCOPE,
+    CATEGORY_READ_SCOPE,
+    SEARCH_KNOWLEDGE_SCOPE,
+)
 from servicenow_mcp.server import create_mcp
 from servicenow_mcp.service import KnowledgeService
 
@@ -113,10 +119,10 @@ async def test_every_tool_requires_its_own_scope_when_apim_auth_is_enabled():
         config_provider=lambda: config,
     )
     expected_scopes = {
-        "search_knowledge": config.mcp_search_scope,
-        "list_knowledge_categories": config.mcp_category_read_scope,
-        "get_knowledge_article": config.mcp_article_read_scope,
-        "get_knowledge_attachment": config.mcp_attachment_read_scope,
+        "search_knowledge": SEARCH_KNOWLEDGE_SCOPE,
+        "list_knowledge_categories": CATEGORY_READ_SCOPE,
+        "get_knowledge_article": ARTICLE_READ_SCOPE,
+        "get_knowledge_attachment": ATTACHMENT_READ_SCOPE,
     }
 
     for tool_name, required_scope in expected_scopes.items():

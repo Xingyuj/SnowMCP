@@ -21,6 +21,12 @@ from .models import (
     KnowledgeCategoriesResponse,
     KnowledgeSearchResponse,
 )
+from .scopes import (
+    ARTICLE_READ_SCOPE,
+    ATTACHMENT_READ_SCOPE,
+    CATEGORY_READ_SCOPE,
+    SEARCH_KNOWLEDGE_SCOPE,
+)
 from .service import KnowledgeService
 
 log = logging.getLogger("servicenow_knowledge_mcp")
@@ -101,7 +107,7 @@ def create_mcp(
             "Use this tool to find relevant enterprise Knowledge Articles from a natural-language "
             "question or keywords. It returns ranked candidates and snippets, not complete article bodies."
         ),
-        auth=scope_check(config.mcp_search_scope),
+        auth=scope_check(SEARCH_KNOWLEDGE_SCOPE),
     )
     async def search_knowledge(
         query: str,
@@ -119,7 +125,7 @@ def create_mcp(
             "Use this tool to list all accessible ServiceNow Knowledge categories and their hierarchy. "
             "Results include category identifiers, labels, parent identifiers, and full paths."
         ),
-        auth=scope_check(config.mcp_category_read_scope),
+        auth=scope_check(CATEGORY_READ_SCOPE),
     )
     async def list_knowledge_categories() -> KnowledgeCategoriesResponse:
         try:
@@ -132,7 +138,7 @@ def create_mcp(
             "Use this tool after search_knowledge identifies a relevant Knowledge Article and complete "
             "canonical content and publication metadata are needed for grounding."
         ),
-        auth=scope_check(config.mcp_article_read_scope),
+        auth=scope_check(ARTICLE_READ_SCOPE),
     )
     async def get_knowledge_article(article_id: str) -> KnowledgeArticle:
         try:
@@ -145,7 +151,7 @@ def create_mcp(
             "Use this supporting tool only when a selected Knowledge Article references an attachment "
             "whose contents are required. It returns bounded base64 binary data and does not parse it."
         ),
-        auth=scope_check(config.mcp_attachment_read_scope),
+        auth=scope_check(ATTACHMENT_READ_SCOPE),
     )
     async def get_knowledge_attachment(
         article_sys_id: str, attachment_sys_id: str

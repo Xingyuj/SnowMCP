@@ -241,7 +241,7 @@ important groups are:
 | Response bounds | `DEFAULT_SEARCH_LIMIT`, `MAX_SEARCH_LIMIT`, `CATEGORY_PAGE_SIZE`, `MAX_ARTICLE_CONTENT_CHARS` |
 | Reliability | `REQUEST_TIMEOUT_SECONDS`, `TRANSIENT_RETRY_ATTEMPTS`, `RETRY_BACKOFF_SECONDS`, `LOG_LEVEL` |
 | Server | `HOST`, `PORT` |
-| APIM claims authorization | `APIM_AUTH_ENABLED`, `APIM_SCOPE_CLAIM_NAMES`, `APIM_SUBJECT_CLAIM_NAMES`, and per-tool scopes |
+| APIM claims authorization | `APIM_AUTH_ENABLED`, `APIM_SCOPE_CLAIM_NAMES`, `APIM_SUBJECT_CLAIM_NAMES`; per-tool scopes are fixed in code |
 
 A configured static ServiceNow access token takes precedence over OAuth client credentials. When
 client credentials are used, the server obtains and caches the access token automatically.
