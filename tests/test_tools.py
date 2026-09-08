@@ -87,7 +87,8 @@ async def test_fastmcp_lists_all_retrieval_tools():
     ]
     assert "ranked candidates" in tools[0].description
     assert "hierarchy" in tools[1].description
-    assert "after search_knowledge" in tools[2].description
+    assert "ServiceNow article identifier as article_id" in tools[2].description
+    assert "search_knowledge" not in tools[2].description
     assert "only when" in tools[3].description
 
 

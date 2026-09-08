@@ -141,8 +141,8 @@ def create_mcp(
 
     @server.tool(
         description=(
-            "Use this tool after search_knowledge identifies a relevant Knowledge Article and complete "
-            "canonical content and publication metadata are needed for grounding."
+            "Retrieve complete canonical content and publication metadata for a Knowledge Article. "
+            "Provide the ServiceNow article identifier as article_id."
         ),
         auth=scope_check(ARTICLE_READ_SCOPE),
     )
