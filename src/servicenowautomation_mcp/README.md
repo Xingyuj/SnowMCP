@@ -48,9 +48,8 @@ This is a **Sync (FastMCP)** pattern application built with FastMCP framework. I
    The server will start on `http://0.0.0.0:8000` by default.
 
 2. **Health checks**:
-   - Liveness: `GET /mcp/health`
-   - Readiness: `GET /mcp/ready`
-   - Alive: `GET /mcp/live`
+   - Liveness: `GET /mcp/live`
+   - Readiness: `GET /mcp/health`
 
 ## Project Structure
 
@@ -89,22 +88,20 @@ Request-scoped context management:
 
 ## Health Checks
 
-The application exposes three Kubernetes probe endpoints:
+The application exposes two conventional HTTP endpoints for Kubernetes probes:
 
-1. **Liveness** (`/mcp/health`) - Simple status check
+1. **Liveness** (`/mcp/live`) - Confirms the process can serve HTTP requests
    ```json
    {"status": "healthy", "service": "servicenowautomation-mcp"}
    ```
 
-2. **Readiness** (`/mcp/ready`) - Checks if ready for traffic
+2. **Readiness** (`/mcp/health`) - Confirms the FastMCP lifespan has started
    ```json
    {"status": "ready", "service": "servicenowautomation-mcp", "environment": "development"}
    ```
 
-3. **Liveness Probe** (`/mcp/live`) - Detailed status with version
-   ```json
-   {"status": "alive", "service": "servicenowautomation-mcp", "version": "1.0.0", "correlation_id": "..."}
-   ```
+The health functions exposed under the `health_` namespace are MCP tools and are
+separate from these HTTP endpoints.
 
 ## Configuration
 

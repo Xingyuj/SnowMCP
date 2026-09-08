@@ -84,16 +84,16 @@ resources:
 
 probes:
   liveness:
-    enabled: false
-    path: /api/health
+    enabled: true
+    path: /mcp/live
     timeoutSeconds: 5
     initialDelaySeconds: 60
     periodSeconds: 30
     failureThreshold: 3
     port: 8080
   readiness:
-    enabled: false
-    path: /api/health?ready=true  # Use proper readiness endpoint
+    enabled: true
+    path: /mcp/health
     timeoutSeconds: 10
     initialDelaySeconds: 30       # Reduced since readiness should be faster
     periodSeconds: 15             # More frequent readiness checks

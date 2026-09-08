@@ -6,6 +6,7 @@ import sys
 
 import pytest
 from fastmcp import Client
+from starlette.testclient import TestClient
 
 
 @pytest.fixture
@@ -50,3 +51,30 @@ async def test_demo_tool(mcp_client):
         )
         assert "Processed: sample-message" in result.content[0].text
         assert "Context: sample-context" in result.content[0].text
+
+
+def test_http_liveness():
+    from main import mcp_app
+
+    with TestClient(mcp_app) as client:
+        response = client.get("/mcp/live")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "status": "healthy",
+        "service": "servicenowautomation-mcp",
+    }
+
+
+def test_http_readiness():
+    from main import mcp_app
+
+    with TestClient(mcp_app) as client:
+        response = client.get("/mcp/health")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "status": "ready",
+        "service": "servicenowautomation-mcp",
+        "environment": "development",
+    }

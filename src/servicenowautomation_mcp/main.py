@@ -16,6 +16,8 @@ import sys
 
 from fastmcp import FastMCP
 from fastmcp.server.lifespan import lifespan
+from starlette.requests import Request
+from starlette.responses import JSONResponse
 
 from app_telemetry import set_up_telemetry
 from authentication import close_async_azure_credential
@@ -80,6 +82,25 @@ mcp = FastMCP(
 # Mount tool collections
 mcp.mount(health_mcp, namespace="health")
 mcp.mount(example_mcp, namespace="example")
+
+
+@mcp.custom_route("/mcp/live", methods=["GET"])
+async def health_live(request: Request) -> JSONResponse:
+    return JSONResponse({"status": "healthy", "service": settings.mcp_name})
+
+
+@mcp.custom_route("/mcp/health", methods=["GET"])
+async def health_ready(request: Request) -> JSONResponse:
+    runtime_state = snapshot_runtime_state()
+    is_ready = runtime_state["lifespan_started"]
+    return JSONResponse(
+        {
+            "status": "ready" if is_ready else "not_ready",
+            "service": settings.mcp_name,
+            "environment": settings.environment,
+        },
+        status_code=200 if is_ready else 503,
+    )
 
 
 # ---------------------------------------------------------------------------
