@@ -40,7 +40,9 @@ spec:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: "{{ .Values.image.registry }}/{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          env: 
+          env:
+            - name: ENVIRONMENT
+              value: {{ .Values.inf.conf.environment | quote }}
             - name: PATH_BASE
               value: "{{ .Values.pathBase }}/{{ .Values.inf.conf.environment }}"
           envFrom:

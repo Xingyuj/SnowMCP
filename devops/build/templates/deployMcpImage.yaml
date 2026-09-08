@@ -46,7 +46,7 @@ steps:
         helm upgrade -n ${{parameters.appNameSpace}} --install ${{parameters.chartName}}-${{parameters.env}} $(System.DefaultWorkingDirectory)/devops/deploy/helm/${{parameters.chartName}} \
         -f $(System.DefaultWorkingDirectory)/devops/deploy/helm/${{parameters.chartName}}/gvalues-${{parameters.env}}.yaml \
         --set image.tag=${{parameters.IMAGE_TAG}} \
-        --set environment=${{parameters.env}} \
+        --set inf.conf.environment=${{parameters.env}} \
         --set adoRepoName="$(Build.Repository.Name)" \
         --set adoBuildId="$(Build.BuildId)" \
         --set adoPipelineId="$(System.DefinitionId)" \
