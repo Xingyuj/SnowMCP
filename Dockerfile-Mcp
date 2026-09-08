@@ -34,15 +34,14 @@ RUN if [ -n "$AZURE_ARTIFACTS_TOKEN" ]; then \
 COPY --chown=appuser:appgroup src/servicenowautomation_mcp/ ./servicenowautomation_mcp/
 
 # Install the project itself now that source code is present
-RUN cd servicenowautomation_mcp && uv sync --frozen --no-dev --no-cache
+WORKDIR /app/servicenowautomation_mcp
+RUN uv sync --frozen --no-dev --no-cache
 
 ENV PATH="/app/servicenowautomation_mcp/.venv/bin:$PATH"
 ENV REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
 
 # Switch to non-root user
 USER appuser
-
-WORKDIR /app/servicenowautomation_mcp
 
 
 EXPOSE 8080
