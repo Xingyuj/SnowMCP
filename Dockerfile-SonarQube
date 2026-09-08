@@ -23,18 +23,16 @@ ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt \
     REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt \
     CURL_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
 
-# Configure apt, install required tools, and create the test user in one layer
-RUN find /etc/apt -type f -name "*.list" -exec sed -i 's|http://deb.debian.org|https://deb.debian.org|g' {} \; \
-    && find /etc/apt -type f -name "*.list" -exec sed -i 's|http://security.debian.org|https://security.debian.org|g' {} \; \
-    && find /etc/apt -type f -name "*.sources" -exec sed -i 's|http://deb.debian.org|https://deb.debian.org|g' {} \; \
-    && find /etc/apt -type f -name "*.sources" \
-        -exec sed -i 's|http://security.debian.org|https://security.debian.org|g' {} \; \
+# Upgrade any clear-text apt source schemes, install tools, and create the test user in one layer
+RUN find /etc/apt -type f \( -name "*.list" -o -name "*.sources" \) \
+        -exec sed -i 's|h[t]tp:|https:|g' {} + \
     && apt-get update \
     && apt-get install -y --no-install-recommends \
         ca-certificates \
         curl \
         git \
-    && curl -LsSf https://astral.sh/uv/0.12.5/install.sh | sh \
+    && curl --proto '=https' --proto-redir '=https' -LsSf \
+        https://astral.sh/uv/0.12.5/install.sh | sh \
     && cp /app/.local/bin/uv /usr/local/bin/uv \
     && cp /app/.local/bin/uvx /usr/local/bin/uvx \
     && chmod +x /usr/local/bin/uv /usr/local/bin/uvx \
