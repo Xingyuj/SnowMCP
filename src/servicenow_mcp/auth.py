@@ -1,5 +1,6 @@
 import asyncio
 from abc import ABC, abstractmethod
+from collections.abc import Awaitable
 from time import monotonic
 from typing import Any
 
@@ -89,8 +90,8 @@ class ServiceNowAuthenticator(ABC):
     @abstractmethod
     async def headers(self, context: AuthorizationContext | None = None) -> dict[str, str]: ...
 
-    async def aclose(self) -> None:
-        return None
+    def aclose(self) -> Awaitable[None]:
+        return asyncio.sleep(0)
 
 
 class IntegrationTokenAuthenticator(ServiceNowAuthenticator):
