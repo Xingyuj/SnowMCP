@@ -23,26 +23,23 @@ ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt \
     REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt \
     CURL_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
 
-# Configure apt to use HTTPS repositories
+# Configure apt, install required tools, and create the test user in one layer
 RUN find /etc/apt -type f -name "*.list" -exec sed -i 's|http://deb.debian.org|https://deb.debian.org|g' {} \; \
     && find /etc/apt -type f -name "*.list" -exec sed -i 's|http://security.debian.org|https://security.debian.org|g' {} \; \
     && find /etc/apt -type f -name "*.sources" -exec sed -i 's|http://deb.debian.org|https://deb.debian.org|g' {} \; \
-    && find /etc/apt -type f -name "*.sources" -exec sed -i 's|http://security.debian.org|https://security.debian.org|g' {} \;
-
-# Install required tools (git for SonarQube, uv for Python package management)
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    git \
-    curl \
-    ca-certificates \
+    && find /etc/apt -type f -name "*.sources" -exec sed -i 's|http://security.debian.org|https://security.debian.org|g' {} \; \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
+        git \
+        curl \
+        ca-certificates \
     && curl -LsSf https://astral.sh/uv/0.12.5/install.sh | sh \
     && cp /app/.local/bin/uv /usr/local/bin/uv \
     && cp /app/.local/bin/uvx /usr/local/bin/uvx \
     && chmod +x /usr/local/bin/uv /usr/local/bin/uvx \
     && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
-
-# Create test result directories and a dedicated non-root user for running tooling
-RUN mkdir -p "${TEST_DIR}/servicenowautomation-mcp" "${TEST_DIR}/servicenow-mcp" \
+    && rm -rf /var/lib/apt/lists/* \
+    && mkdir -p "${TEST_DIR}/servicenowautomation-mcp" "${TEST_DIR}/servicenow-mcp" \
     && groupadd --system ServiceNowAutomation-ai-factory \
     && useradd --system --create-home --gid ServiceNowAutomation-ai-factory --shell /bin/bash ServiceNowAutomation-ai-factory \
     && chown -R ServiceNowAutomation-ai-factory:ServiceNowAutomation-ai-factory "${PROJECT_DIR}" "${TEST_DIR}"
