@@ -44,7 +44,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Create test results directory
 
 
-RUN mkdir -p ${TEST_DIR}/servicenowautomation-mcp
+RUN mkdir -p ${TEST_DIR}/servicenowautomation-mcp ${TEST_DIR}/servicenow-mcp
 
 
 
@@ -76,9 +76,20 @@ RUN if [ -n "$AZURE_ARTIFACTS_TOKEN" ]; then \
         --junitxml=${TEST_DIR}/servicenowautomation-mcp/test-results.xml \
         tests/
 
-
-
-
+# ==========================================
+# ServiceNow Knowledge MCP - Python Tests & Coverage
+# ==========================================
+WORKDIR ${PROJECT_DIR}
+RUN uv pip install \
+        --python ${MCP_DIR}/.venv/bin/python \
+        --no-cache \
+        --editable ".[dev]" \
+    && PYTHONPATH="${PROJECT_DIR}/src" ${MCP_DIR}/.venv/bin/python -m pytest \
+        --cov=src/servicenow_mcp \
+        --cov-report=xml:${TEST_DIR}/servicenow-mcp/coverage.xml \
+        --cov-report=term \
+        --junitxml=${TEST_DIR}/servicenow-mcp/test-results.xml \
+        tests/
 # ==========================================
 # SONARQUBE SCAN - Full Codebase Analysis
 # ==========================================
@@ -100,7 +111,7 @@ RUN sonar-scanner \
     -D${var_pr_src} \
     -D${var_pr_key} \
     -D${var_pr_dest} \
-    -Dsonar.python.coverage.reportPaths="/src/testresults/servicenowautomation-mcp/coverage.xml" \
+    -Dsonar.python.coverage.reportPaths="/src/testresults/servicenowautomation-mcp/coverage.xml,/src/testresults/servicenow-mcp/coverage.xml" \
     -Dsonar.python.version=3.12 \
     -Dsonar.exclusions=**/scripts/**,**/tests/**,**/pdb.yaml,**/devops/**,**/*.spec.ts,**/*.spec.tsx \
     -Dsonar.test.exclusions=**/scripts/**,**/tests/**,**/devops/**,**/*.spec.ts,**/*.spec.tsx \
