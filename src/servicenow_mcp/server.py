@@ -68,52 +68,65 @@ def build_apim_auth(config: ServiceNowKnowledgeConfig) -> TokenVerifier | None:
     )
 
 
+class _ServiceRuntime:
+    """Own the lazily initialized service and its client lifecycle."""
+
+    def __init__(
+        self,
+        config: ServiceNowKnowledgeConfig,
+        service: KnowledgeService | None,
+    ) -> None:
+        self._config = config
+        self._state: dict[str, object] = {"service": service}
+        self._lock = Lock()
+
+    @asynccontextmanager
+    async def lifespan(self, _: FastMCP) -> AsyncIterator[dict[str, object]]:
+        try:
+            yield self._state
+        finally:
+            owned_client = self._state.get("owned_client")
+            if isinstance(owned_client, ServiceNowKnowledgeApiClient):
+                await owned_client.aclose()
+
+    def resolve_service(self) -> KnowledgeService:
+        current = self._state.get("service")
+        if isinstance(current, KnowledgeService):
+            return current
+        with self._lock:
+            current = self._state.get("service")
+            if isinstance(current, KnowledgeService):
+                return current
+            current, client = build_service(self._config)
+            self._state["service"] = current
+            self._state["owned_client"] = client
+            return current
+
+
+def _scope_check(config: ServiceNowKnowledgeConfig, scope: str) -> AuthCheck | None:
+    return require_scopes(scope) if config.apim_auth_enabled else None
+
+
 def create_mcp(
     service: KnowledgeService | None = None,
     config_provider: Callable[[], ServiceNowKnowledgeConfig] = get_config,
 ) -> FastMCP:
     config = config_provider()
-    state: dict[str, object] = {"service": service}
-    service_lock = Lock()
-
-    @asynccontextmanager
-    async def lifespan(_: FastMCP) -> AsyncIterator[dict[str, object]]:
-        try:
-            yield state
-        finally:
-            owned_client = state.get("owned_client")
-            if isinstance(owned_client, ServiceNowKnowledgeApiClient):
-                await owned_client.aclose()
+    runtime = _ServiceRuntime(config, service)
 
     server = FastMCP(
         "ServiceNow Knowledge",
         instructions="Retrieve authoritative enterprise Knowledge Articles without generating answers.",
         auth=build_apim_auth(config),
-        lifespan=lifespan,
+        lifespan=runtime.lifespan,
     )
-
-    def scope_check(scope: str) -> AuthCheck | None:
-        return require_scopes(scope) if config.apim_auth_enabled else None
-
-    def resolve_service() -> KnowledgeService:
-        current = state.get("service")
-        if isinstance(current, KnowledgeService):
-            return current
-        with service_lock:
-            current = state.get("service")
-            if isinstance(current, KnowledgeService):
-                return current
-            current, client = build_service(config)
-            state["service"] = current
-            state["owned_client"] = client
-            return current
 
     @server.tool(
         description=(
             "Use this tool to find relevant enterprise Knowledge Articles from a natural-language "
             "question or keywords. It returns ranked candidates and snippets, not complete article bodies."
         ),
-        auth=scope_check(SEARCH_KNOWLEDGE_SCOPE),
+        auth=_scope_check(config, SEARCH_KNOWLEDGE_SCOPE),
     )
     async def search_knowledge(
         query: str,
@@ -122,7 +135,9 @@ def create_mcp(
         language: str | None = None,
     ) -> KnowledgeSearchResponse:
         try:
-            return await resolve_service().search_knowledge(query, limit, knowledge_base, language)
+            return await runtime.resolve_service().search_knowledge(
+                query, limit, knowledge_base, language
+            )
         except KnowledgeMcpError as exc:
             raise ToolError(f"{exc.code}: {exc.message}") from None
 
@@ -131,11 +146,11 @@ def create_mcp(
             "Use this tool to list all accessible ServiceNow Knowledge categories and their hierarchy. "
             "Results include category identifiers, labels, parent identifiers, and full paths."
         ),
-        auth=scope_check(CATEGORY_READ_SCOPE),
+        auth=_scope_check(config, CATEGORY_READ_SCOPE),
     )
     async def list_knowledge_categories() -> KnowledgeCategoriesResponse:
         try:
-            return await resolve_service().list_knowledge_categories()
+            return await runtime.resolve_service().list_knowledge_categories()
         except KnowledgeMcpError as exc:
             raise ToolError(f"{exc.code}: {exc.message}") from None
 
@@ -144,11 +159,11 @@ def create_mcp(
             "Retrieve complete canonical content and publication metadata for a Knowledge Article. "
             "Provide the ServiceNow article identifier as article_id."
         ),
-        auth=scope_check(ARTICLE_READ_SCOPE),
+        auth=_scope_check(config, ARTICLE_READ_SCOPE),
     )
     async def get_knowledge_article(article_id: str) -> KnowledgeArticle:
         try:
-            return await resolve_service().get_knowledge_article(article_id)
+            return await runtime.resolve_service().get_knowledge_article(article_id)
         except KnowledgeMcpError as exc:
             raise ToolError(f"{exc.code}: {exc.message}") from None
 
@@ -157,13 +172,13 @@ def create_mcp(
             "Use this supporting tool only when a selected Knowledge Article references an attachment "
             "whose contents are required. It returns bounded base64 binary data and does not parse it."
         ),
-        auth=scope_check(ATTACHMENT_READ_SCOPE),
+        auth=_scope_check(config, ATTACHMENT_READ_SCOPE),
     )
     async def get_knowledge_attachment(
         article_sys_id: str, attachment_sys_id: str
     ) -> KnowledgeAttachment:
         try:
-            return await resolve_service().get_knowledge_attachment(
+            return await runtime.resolve_service().get_knowledge_attachment(
                 article_sys_id, attachment_sys_id
             )
         except KnowledgeMcpError as exc:
