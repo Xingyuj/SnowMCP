@@ -96,6 +96,7 @@ class ServiceNowKnowledgeApiClient(KnowledgeBackend):
     ) -> httpx.Response:
         attempts = self.config.transient_retry_attempts + 1
         for attempt in range(attempts):
+            final_attempt = attempt + 1 == attempts
             try:
                 response = await self.http_client.request(
                     method,
@@ -103,23 +104,24 @@ class ServiceNowKnowledgeApiClient(KnowledgeBackend):
                     params=params,
                     headers=await self._headers(authorization, accept),
                 )
-            except httpx.TimeoutException as exc:
-                if attempt + 1 == attempts:
-                    raise KnowledgeMcpError(
-                        ErrorCode.UPSTREAM_TIMEOUT, "ServiceNow request timed out"
-                    ) from exc
-            except httpx.RequestError as exc:
-                if attempt + 1 == attempts:
-                    raise KnowledgeMcpError(
-                        ErrorCode.UPSTREAM_UNAVAILABLE, "ServiceNow is unavailable"
-                    ) from exc
+            except (httpx.TimeoutException, httpx.RequestError) as exc:
+                if final_attempt:
+                    raise self._request_failure(exc) from exc
             else:
-                if response.status_code not in (429,) and response.status_code < 500:
-                    return response
-                if attempt + 1 == attempts:
+                if final_attempt or not self._is_retryable(response):
                     return response
             await asyncio.sleep(self.config.retry_backoff_seconds * (2**attempt))
         raise AssertionError("request retry loop exited unexpectedly")
+
+    @staticmethod
+    def _request_failure(exc: httpx.RequestError) -> KnowledgeMcpError:
+        if isinstance(exc, httpx.TimeoutException):
+            return KnowledgeMcpError(ErrorCode.UPSTREAM_TIMEOUT, "ServiceNow request timed out")
+        return KnowledgeMcpError(ErrorCode.UPSTREAM_UNAVAILABLE, "ServiceNow is unavailable")
+
+    @staticmethod
+    def _is_retryable(response: httpx.Response) -> bool:
+        return response.status_code == 429 or response.status_code >= 500
 
     @staticmethod
     def _raise_for_status(response: httpx.Response, resource: str) -> None:
