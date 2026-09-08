@@ -13,6 +13,8 @@ from servicenow_mcp.models import (
 from servicenow_mcp.server import create_mcp
 from servicenow_mcp.service import KnowledgeService
 
+TEST_SERVICENOW_BASE_URL = "https://instance.example"
+
 
 class ToolClient(KnowledgeBackend):
     async def search(
@@ -58,8 +60,8 @@ class ToolClient(KnowledgeBackend):
         )
 
 
-def server_client() -> Client:
-    config = ServiceNowKnowledgeConfig(servicenow_base_url="https://instance.example")
+def server_client(config: ServiceNowKnowledgeConfig | None = None) -> Client:
+    config = config or ServiceNowKnowledgeConfig(servicenow_base_url=TEST_SERVICENOW_BASE_URL)
     return Client(create_mcp(KnowledgeService(ToolClient(), config)))
 
 
