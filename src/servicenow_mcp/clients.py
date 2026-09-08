@@ -19,6 +19,8 @@ from .models import (
 )
 from .tls import system_ssl_context
 
+SERVICE_NOW_UNAVAILABLE = "ServiceNow is unavailable"
+
 
 class KnowledgeBackend(ABC):
     @abstractmethod
@@ -117,7 +119,7 @@ class ServiceNowKnowledgeApiClient(KnowledgeBackend):
     def _request_failure(exc: httpx.RequestError) -> KnowledgeMcpError:
         if isinstance(exc, httpx.TimeoutException):
             return KnowledgeMcpError(ErrorCode.UPSTREAM_TIMEOUT, "ServiceNow request timed out")
-        return KnowledgeMcpError(ErrorCode.UPSTREAM_UNAVAILABLE, "ServiceNow is unavailable")
+        return KnowledgeMcpError(ErrorCode.UPSTREAM_UNAVAILABLE, SERVICE_NOW_UNAVAILABLE)
 
     @staticmethod
     def _is_retryable(response: httpx.Response) -> bool:
@@ -142,7 +144,7 @@ class ServiceNowKnowledgeApiClient(KnowledgeBackend):
             )
         if status >= 500:
             raise KnowledgeMcpError(
-                ErrorCode.UPSTREAM_UNAVAILABLE, "ServiceNow is unavailable", status=status
+                ErrorCode.UPSTREAM_UNAVAILABLE, SERVICE_NOW_UNAVAILABLE, status=status
             )
         if status >= 400:
             raise KnowledgeMcpError(
@@ -370,7 +372,7 @@ class ServiceNowKnowledgeApiClient(KnowledgeBackend):
             except httpx.RequestError as exc:
                 if attempt + 1 == attempts:
                     raise KnowledgeMcpError(
-                        ErrorCode.UPSTREAM_UNAVAILABLE, "ServiceNow is unavailable"
+                        ErrorCode.UPSTREAM_UNAVAILABLE, SERVICE_NOW_UNAVAILABLE
                     ) from exc
             await asyncio.sleep(self.config.retry_backoff_seconds * (2**attempt))
         raise AssertionError("attachment retry loop exited unexpectedly")
