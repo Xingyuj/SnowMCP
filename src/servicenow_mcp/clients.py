@@ -77,10 +77,13 @@ class ServiceNowKnowledgeApiClient(KnowledgeBackend):
     async def _headers(
         self, authorization: AuthorizationContext | None, accept: str
     ) -> dict[str, str]:
-        headers = {"Accept": accept, **await self.authenticator.headers(authorization)}
-        if self.config.servicenow_api_version:
-            headers["Accept-Version"] = self.config.servicenow_api_version
-        return headers
+        authentication_headers = await self.authenticator.headers(authorization)
+        version_headers = (
+            {"Accept-Version": self.config.servicenow_api_version}
+            if self.config.servicenow_api_version
+            else {}
+        )
+        return {"Accept": accept, **authentication_headers, **version_headers}
 
     async def _request(
         self,
