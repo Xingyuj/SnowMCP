@@ -37,7 +37,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--secret", required=True)
     parser.add_argument("--issuer", default="https://local.test")
-    parser.add_argument("--audience", default="servicenow-knowledge-mcp")
+    parser.add_argument("--audience", default="servicenowautomation-mcp")
     parser.add_argument("--subject", default="local-test-user")
     parser.add_argument("--lifetime", type=int, default=900)
     parser.add_argument("scopes", nargs="*")

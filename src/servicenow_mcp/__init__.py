@@ -1,1 +1,1 @@
-"""ServiceNow Knowledge MCP integration."""
+"""ServiceNowAutomation MCP integration."""

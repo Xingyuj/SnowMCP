@@ -32,7 +32,7 @@ from .scopes import (
 )
 from .service import KnowledgeService
 
-log = logging.getLogger("servicenow_knowledge_mcp")
+log = logging.getLogger("servicenowautomation_mcp")
 
 
 def build_service(
@@ -124,7 +124,7 @@ def create_mcp(
     runtime = _ServiceRuntime(config, service)
 
     server = FastMCP(
-        "ServiceNow Knowledge",
+        "ServiceNowAutomation",
         instructions="Retrieve authoritative enterprise Knowledge Articles without generating answers.",
         auth=build_apim_auth(config),
         lifespan=runtime.lifespan,
@@ -195,7 +195,7 @@ def create_mcp(
 
     @server.custom_route("/mcp/live", methods=["GET"])
     async def health_live(_: Request) -> JSONResponse:
-        return JSONResponse({"status": "healthy", "service": "servicenow-knowledge-mcp"})
+        return JSONResponse({"status": "healthy", "service": "servicenowautomation-mcp"})
 
     @server.custom_route("/mcp/health", methods=["GET"])
     @server.custom_route("/mcp/ready", methods=["GET"])
@@ -204,7 +204,7 @@ def create_mcp(
         return JSONResponse(
             {
                 "status": "ready" if is_ready else "not_ready",
-                "service": "servicenow-knowledge-mcp",
+                "service": "servicenowautomation-mcp",
             },
             status_code=200 if is_ready else 503,
         )

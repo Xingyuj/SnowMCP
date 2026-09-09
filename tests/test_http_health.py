@@ -12,12 +12,12 @@ def test_http_health_endpoints_are_available_during_application_lifespan():
     assert live.status_code == 200
     assert live.json() == {
         "status": "healthy",
-        "service": "servicenow-knowledge-mcp",
+        "service": "servicenowautomation-mcp",
     }
     assert health.status_code == 200
     assert health.json() == {
         "status": "ready",
-        "service": "servicenow-knowledge-mcp",
+        "service": "servicenowautomation-mcp",
     }
     assert ready.status_code == 200
     assert ready.json() == health.json()

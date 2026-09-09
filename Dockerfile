@@ -16,4 +16,4 @@ ENV PATH="/app/.venv/bin:$PATH" \
     REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
 USER app
 EXPOSE 8080
-CMD ["servicenow-knowledge-mcp"]
+CMD ["servicenowautomation-mcp"]

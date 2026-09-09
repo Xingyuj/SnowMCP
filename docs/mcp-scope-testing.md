@@ -73,7 +73,7 @@ ALL_TOKEN="$(.venv/bin/python scripts/generate_test_jwt.py \
 Start the server in another terminal with the same APIM environment:
 
 ```bash
-.venv/bin/servicenow-knowledge-mcp
+.venv/bin/servicenowautomation-mcp
 ```
 
 The helper client sends the bearer token:

@@ -116,7 +116,7 @@ stages:
                       mcpServerName: "servicenowautomation"
                       backendName: "servicenowautomation-backend-dev"
                       backendUrl: "https://caasnp4.bupa.com.au/servicenowautomation-mcp-dev"
-                      mcpDescription: "ServiceNow Knowledge Model Context Protocol Server"
+                      mcpDescription: "ServiceNowAutomation Model Context Protocol Server"
                       env: dev
                       APIMazSubsSvc: "BupaANZ-InfoSvcs-2-Test-VSTS"
                       azureAudienceId: $(azureAudienceId)
@@ -166,7 +166,7 @@ stages:
                       mcpServerName: "servicenowautomation"
                       backendName: "servicenowautomation-backend-test"
                       backendUrl: "https://caasnp4.bupa.com.au/servicenowautomation-mcp-test"
-                      mcpDescription: "ServiceNow Knowledge Model Context Protocol Server"
+                      mcpDescription: "ServiceNowAutomation Model Context Protocol Server"
                       env: test
                       APIMazSubsSvc: "BupaANZ-InfoSvcs-2-Test-VSTS"
                       azureAudienceId: $(azureAudienceId)

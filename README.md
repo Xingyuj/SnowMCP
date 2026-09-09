@@ -1,6 +1,6 @@
 <div align="center">
 
-# ServiceNow Knowledge MCP Server
+# ServiceNowAutomation MCP Server
 
 ![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)
 ![FastMCP 3.x](https://img.shields.io/badge/FastMCP-3.x-009688)
@@ -73,7 +73,7 @@ Do not commit `.env` or expose access tokens and client secrets in logs or scree
 The server uses Streamable HTTP:
 
 ```bash
-servicenow-knowledge-mcp
+servicenowautomation-mcp
 ```
 
 The MCP endpoint is available at `http://127.0.0.1:8080/mcp`.
@@ -111,7 +111,7 @@ configuration looks like this:
 ```json
 {
   "mcpServers": {
-    "servicenow-knowledge": {
+    "servicenowautomation": {
       "type": "http",
       "url": "https://your-mcp-host.example/mcp",
       "headers": {
@@ -298,8 +298,8 @@ scope mapping, and copy-ready calls.
 ## Docker
 
 ```bash
-docker build -t servicenow-knowledge-mcp .
-docker run --env-file .env -p 8080:8080 servicenow-knowledge-mcp
+docker build -t servicenowautomation-mcp .
+docker run --env-file .env -p 8080:8080 servicenowautomation-mcp
 ```
 
 The container runs as a non-root user and exposes the HTTP server on port `8080` by default.

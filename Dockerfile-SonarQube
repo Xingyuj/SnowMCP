@@ -50,7 +50,7 @@ USER ServiceNowAutomation-ai-factory
 
 
 # ==========================================
-# ServiceNow Knowledge MCP - Python Tests & Coverage
+# ServiceNowAutomation - Python Tests & Coverage
 # ==========================================
 WORKDIR ${PROJECT_DIR}
 RUN uv sync --frozen --no-cache --extra dev \

@@ -1,4 +1,4 @@
-"""Small HTTP client for exercising the local ServiceNow Knowledge MCP server."""
+"""Small HTTP client for exercising the local ServiceNowAutomation MCP server."""
 
 import argparse
 import asyncio
@@ -131,7 +131,7 @@ def _tool_output(result: dict[str, Any]) -> Any:
 
 
 def _parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Call the local ServiceNow Knowledge MCP server")
+    parser = argparse.ArgumentParser(description="Call the local ServiceNowAutomation MCP server")
     parser.add_argument("--server", default="http://127.0.0.1:8080/mcp")
     parser.add_argument("--timeout", type=float, default=30.0)
     parser.add_argument(
