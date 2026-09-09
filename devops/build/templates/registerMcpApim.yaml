@@ -17,6 +17,8 @@ parameters:
     default: "mcp-backend"
   - name: "backendUrl"
     default: "https://caasnp4.bupa.com.au"
+  - name: "productId"
+    default: "servicenow-automation"
   - name: "azureAudienceId"
     default: ""
 
@@ -66,7 +68,7 @@ steps:
         API_BODY=$(cat <<'MCP_EOF'
         {
           "properties": {
-            "displayName": "${{parameters.mcpServerName}}",
+            "displayName": "${{parameters.mcpServerName}}-${{parameters.env}}",
             "description": "${{parameters.mcpDescription}}",
             "subscriptionRequired": true,
             "backendId": "${{parameters.backendName}}",
@@ -103,6 +105,49 @@ steps:
           --body "$API_BODY"
 
         echo "MCP API created: $API_NAME"
+
+  - task: AzureCLI@2
+    displayName: "[${{parameters.mcpServerName}}] Attach APIM API to Product"
+    inputs:
+      azureSubscription: ${{parameters.APIMazSubsSvc}}
+      scriptLocation: inlineScript
+      scriptType: bash
+      inlineScript: |
+        set -euo pipefail
+        API_NAME="${{parameters.mcpServerName}}-${{parameters.env}}"
+        PRODUCT_ID="${{parameters.productId}}"
+        APIM_BASE_URI="https://management.azure.com/subscriptions/${{parameters.APIMSubscriptionId}}/resourceGroups/${{parameters.APIMResourceGroupName}}/providers/Microsoft.ApiManagement/service/${{parameters.ApiPortalName}}"
+        PRODUCT_URI="$APIM_BASE_URI/products/$PRODUCT_ID"
+        RESPONSE_FILE=$(mktemp)
+        trap 'rm -f "$RESPONSE_FILE"' EXIT
+
+        ACCESS_TOKEN=$(az account get-access-token \
+          --resource "https://management.azure.com/" \
+          --query accessToken \
+          --output tsv)
+        HTTP_STATUS=$(curl --silent --show-error \
+          --output "$RESPONSE_FILE" \
+          --write-out "%{http_code}" \
+          --header "Authorization: Bearer $ACCESS_TOKEN" \
+          "$PRODUCT_URI?api-version=2024-06-01-preview")
+
+        case "$HTTP_STATUS" in
+          200)
+            az rest \
+              --method PUT \
+              --url "$PRODUCT_URI/apis/$API_NAME?api-version=2024-06-01-preview" \
+              --body '{}'
+            echo "API $API_NAME attached to product $PRODUCT_ID"
+            ;;
+          404)
+            echo "##vso[task.logissue type=warning]APIM product $PRODUCT_ID does not exist yet; API association is deferred until the governed product deployment completes."
+            ;;
+          *)
+            echo "Unexpected HTTP $HTTP_STATUS while checking APIM product $PRODUCT_ID" >&2
+            jq '{error: .error}' "$RESPONSE_FILE" >&2 || true
+            exit 1
+            ;;
+        esac
 
   - task: AzureCLI@2
     displayName: "[${{parameters.mcpServerName}}] Set APIM Policies"

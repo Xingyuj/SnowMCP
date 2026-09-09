@@ -42,7 +42,7 @@ variables:
   - name: expName
     value: "ServiceNowAutomation"
   - name: repository
-    value: "servicenowautomation/$(projectName)"
+    value: "$(expName)/$(projectName)"
 
 stages:
   - stage: Build
@@ -70,7 +70,7 @@ stages:
           checkmarxProjectNamePostfix: 'servicenowautomation'
           runCheckmarx: false
 
-  - ${{ if eq(parameters.deploy, true) }}:
+  - ${{ if or(eq(parameters.deploy, true), eq(variables['Build.SourceBranch'], 'refs/heads/develop')) }}:
     - stage: DEV_Deploy
       displayName: DEV Deploy MCP Server
       condition: and(

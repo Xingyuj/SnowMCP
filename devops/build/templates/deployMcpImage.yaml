@@ -29,6 +29,24 @@ steps:
   - task: KubectlInstaller@0
     displayName: "Install kubectl"
 
+  - bash: |
+      set -euo pipefail
+
+      kubelogin_version="v0.2.19"
+      kubelogin_archive="$(Agent.TempDirectory)/kubelogin-linux-amd64.zip"
+      kubelogin_dir="$(Agent.TempDirectory)/kubelogin-${kubelogin_version}"
+
+      curl --fail --location --retry 3 --retry-all-errors \
+        --output "$kubelogin_archive" \
+        "https://github.com/Azure/kubelogin/releases/download/${kubelogin_version}/kubelogin-linux-amd64.zip"
+      echo "ebaeff02aa899c5cae6a2b954b64fc02738185319df2570f7dc053451efa4b2f  $kubelogin_archive" \
+        | sha256sum --check --strict
+      rm -rf "$kubelogin_dir"
+      unzip -q "$kubelogin_archive" -d "$kubelogin_dir"
+      "$kubelogin_dir/bin/linux_amd64/kubelogin" --version
+      echo "##vso[task.prependpath]$kubelogin_dir/bin/linux_amd64"
+    displayName: "Install pinned kubelogin"
+
   - task: AzureCLI@2
     displayName: "Connect Cluster & Helm Deploy"
     inputs:
@@ -36,29 +54,54 @@ steps:
       scriptLocation: inlineScript
       scriptType: bash
       inlineScript: |
+        set -euo pipefail
+
         az aks get-credentials \
           --resource-group ${{parameters.AKS_RESOURCE_GROUP_NAME}} \
           --name ${{parameters.CLUSTER_NAME}} --overwrite-existing
 
         kubectl config get-contexts
-        az aks install-cli
         kubelogin convert-kubeconfig -l azurecli
-        helm upgrade -n ${{parameters.appNameSpace}} --install ${{parameters.chartName}}-${{parameters.env}} $(System.DefaultWorkingDirectory)/devops/deploy/helm/${{parameters.chartName}} \
+        release_name=${{parameters.chartName}}-${{parameters.env}}
+        bootstrap_policy=${release_name}-bootstrap-ap
+        release_status=$(helm status $release_name \
+          -n ${{parameters.appNameSpace}} 2>/dev/null | awk '/^STATUS:/{print $2}') || true
+
+        if [[ "$release_status" == "failed" ]]; then
+          echo "Removing failed Helm release $release_name before retry"
+          helm uninstall $release_name -n ${{parameters.appNameSpace}}
+        fi
+
+        helm upgrade -n ${{parameters.appNameSpace}} --install $release_name $(System.DefaultWorkingDirectory)/devops/deploy/helm/${{parameters.chartName}} \
+        --wait --timeout 5m \
         -f $(System.DefaultWorkingDirectory)/devops/deploy/helm/${{parameters.chartName}}/gvalues-${{parameters.env}}.yaml \
         --set image.tag=${{parameters.IMAGE_TAG}} \
-        --set inf.conf.environment=${{parameters.env}} \
+        --set environment=${{parameters.env}} \
+        --set authorizationPolicyBootstrap=true \
         --set adoRepoName="$(Build.Repository.Name)" \
         --set adoBuildId="$(Build.BuildId)" \
         --set adoPipelineId="$(System.DefinitionId)" \
         --set adoTeamProject="$(System.TeamProject)" \
         --set adoSourceBranchName="$(Build.SourceBranchName)" \
         --set adoCommitId="$(Build.SourceVersion)" \
+        --set-string pipelineMetadata.org="$(System.CollectionUri)" \
+        --set-string pipelineMetadata.project="$(System.TeamProject)" \
+        --set-string pipelineMetadata.pipeline="$(System.DefinitionId)" \
+        --set-string pipelineMetadata.run="$(Build.BuildId)" \
+        --set-string pipelineMetadata.build="$(Build.BuildNumber)" \
+        --set-string pipelineMetadata.buildUrl="$(System.CollectionUri)$(System.TeamProject)/_build/results?buildId=$(Build.BuildId)" \
+        --set-string pipelineMetadata.repositoryUri="$(Build.Repository.Uri)" \
+        --set-string pipelineMetadata.sourceBranch="$(Build.SourceBranch)" \
+        --set-string pipelineMetadata.commitId="$(Build.SourceVersion)" \
         $env_vsts_override
+
+        kubectl delete authorizationpolicy $bootstrap_policy \
+          -n ${{parameters.appNameSpace}} --ignore-not-found
     env:
       env_vsts_override: ${{ parameters.vsts_override }}
 
   - task: AzureCLI@2
-    displayName: "Restart Deployment"
+    displayName: "Verify Deployment Rollout"
     inputs:
       azureSubscription: ${{parameters.azSubsSvc}}
       scriptLocation: inlineScript
@@ -69,4 +112,5 @@ steps:
           --name ${{parameters.CLUSTER_NAME}} --overwrite-existing
         kubectl config get-contexts
         kubelogin convert-kubeconfig -l azurecli
-        kubectl rollout restart deployment ${{parameters.chartName}}-${{parameters.env}} -n ${{parameters.appNameSpace}}
+        kubectl rollout status deployment/${{parameters.chartName}}-${{parameters.env}} \
+          -n ${{parameters.appNameSpace}} --timeout=2m

@@ -5,7 +5,7 @@ inf:
     host: caasnp4.bupa.com.au
     hostext: np4.caasi.bupa.com.au
     environment: test
-    msi_clientid: 24d9daf1-f228-4741-8def-ed73266bb7ad
+    msi_clientid: dc828847-ae6e-4f5f-92b5-bac6d5f2735e
     authpolicy: "True"
     enable_swagger: "true"
     servicenowautomation_mcp:

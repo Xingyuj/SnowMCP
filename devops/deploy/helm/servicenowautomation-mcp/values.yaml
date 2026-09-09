@@ -5,12 +5,22 @@
 
 replicaCount: 1
 pathBase: /servicenowautomation-mcp
+authorizationPolicyBootstrap: false
+
+pipelineMetadata:
+  org: ""
+  project: ""
+  pipeline: ""
+  run: ""
+  build: ""
+  buildUrl: ""
+  repositoryUri: ""
+  sourceBranch: ""
+  commitId: ""
 
 image:
-  registry: devopsdockercontainers.azurecr.io
+  registry: banznonprodacrcaas01.azurecr.io
   repository: servicenowautomation/servicenowautomation-mcp
-  appdrepository: appdynamics/dotnet-core-agent
-  appdtag: latest
   tag: latest
   oparepository: bupabase/opa
   opatag: latest-istio
@@ -32,15 +42,18 @@ serviceAccount:
   name: ""
 
 
-podSecurityContext: {}
-  # fsGroup: 2000
+podSecurityContext:
+  seccompProfile:
+    type: RuntimeDefault
 
 securityContext:
+  allowPrivilegeEscalation: false
   capabilities:
     drop:
       - ALL
-  # readOnlyRootFilesystem: true
+  readOnlyRootFilesystem: true
   runAsNonRoot: true
+  runAsGroup: 1001
   runAsUser: 1001
 
 service:

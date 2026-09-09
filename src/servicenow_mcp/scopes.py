@@ -1,4 +1,4 @@
-"""Fixed authorization scopes for the public MCP tool contract."""
+"""authorization scopes for the public MCP tool contract."""
 
 SEARCH_KNOWLEDGE_SCOPE = "knowledge.search"
 CATEGORY_READ_SCOPE = "knowledge.category.read"

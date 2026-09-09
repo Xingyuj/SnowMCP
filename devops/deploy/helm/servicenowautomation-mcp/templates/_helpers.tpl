@@ -99,3 +99,19 @@ Auth Policy
 {{- printf "" -}}
 {{- end -}}
 {{- end -}}
+
+{{/*
+Authorization policy shared by the release-managed and bootstrap resources.
+*/}}
+{{- define "servicenowautomation-mcp.authorizationPolicySpec" -}}
+selector:
+  matchLabels:
+    app.kubernetes.io/instance: {{ include "servicenowautomation-mcp.fullname" . }}
+action: ALLOW
+rules:
+- from:
+  - source:
+      principals: ["cluster.local/ns/istio-system/sa/istio-ingressgateway-int-service-account" {{ include "servicenowautomation-mcp.authpolicy" . }}]
+  - source:
+      namespaces: ["{{ .Values.namespace }}", "istio-system"]
+{{- end -}}

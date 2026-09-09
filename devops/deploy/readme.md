@@ -11,7 +11,7 @@ This directory contains the Helm chart for deploying the servicenowautomation-mc
   - `gvalues-test.yaml` - Test environment overrides
   - `.helmignore` - Packaging excludes
   - `templates/` - Kubernetes manifests
-    - `deployment.yaml` - Deployment specification (Azure Workload Identity, AppDynamics init container)
+    - `deployment.yaml` - Deployment specification with Azure Workload Identity
     - `service.yaml` - ClusterIP Service
     - `configmap.yaml` - ConfigMap for environment configuration
     - `serviceaccount.yaml` - Optional Workload-Identity-federated Service Account

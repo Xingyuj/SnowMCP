@@ -27,6 +27,15 @@ spec:
         ado_teamProject: {{ .Values.adoTeamProject | quote}}
         ado_commitId: {{ .Values.adoCommitId | quote}}
         ado_sourceBranchName: {{ .Values.adoSourceBranchName | quote}}
+        pipelines/org: {{ .Values.pipelineMetadata.org | quote }}
+        pipelines/project: {{ .Values.pipelineMetadata.project | quote }}
+        pipelines/pipeline: {{ .Values.pipelineMetadata.pipeline | quote }}
+        pipelines/run: {{ .Values.pipelineMetadata.run | quote }}
+        pipelines/build: {{ .Values.pipelineMetadata.build | quote }}
+        pipelines/buildurl: {{ .Values.pipelineMetadata.buildUrl | quote }}
+        pipelines/repositoryuri: {{ .Values.pipelineMetadata.repositoryUri | quote }}
+        pipelines/sourcebranch: {{ .Values.pipelineMetadata.sourceBranch | quote }}
+        pipelines/commitid: {{ .Values.pipelineMetadata.commitId | quote }}
       labels:
         {{- include "servicenowautomation-mcp.selectorLabels" . | nindent 8 }}
         azure.workload.identity/use: "true"
@@ -59,9 +68,6 @@ spec:
             - name: http
               containerPort: {{ .Values.mcp.args.port }}
               protocol: TCP
-          volumeMounts:
-            - name: appd-agent-repo
-              mountPath: /opt/appdynamics
           {{- if .Values.probes.readiness.enabled }}
           readinessProbe:
             httpGet:
@@ -84,15 +90,6 @@ spec:
           {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
-      initContainers:
-        - name: appd-agent
-          image: "{{ .Values.image.registry }}/{{ .Values.image.appdrepository }}:{{ .Values.image.appdtag }}"
-          volumeMounts:
-            - mountPath: /appdynamics
-              name: appd-agent-repo
-      volumes:
-        - name: appd-agent-repo
-          emptyDir: {}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
