@@ -114,16 +114,21 @@ async def test_get_article_maps_content_and_status_metadata():
         "number": "KB002",
         "short_description": "Policy",
         "article_body": "Canonical content",
-        "workflow_state": "draft",
-        "published": "2026-01-01",
+        "workflow": "draft",
         "valid_to": "2026-12-31",
         "sys_updated_on": "2026-06-01",
     }
-    article = await client(
-        lambda _: httpx.Response(200, json={"result": {"article": raw}})
-    ).get_article("article-1")
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        requested_fields = request.url.params["fields"].split(",")
+        assert "workflow" in requested_fields
+        assert "workflow_state" not in requested_fields
+        assert "published" not in requested_fields
+        return httpx.Response(200, json={"result": {"article": raw}})
+
+    article = await client(handler).get_article("article-1")
     assert article.content == "Canonical content"
-    assert article.workflow_state == "draft"
+    assert article.workflow == "draft"
     assert article.valid_to == "2026-12-31"
 
 

@@ -25,8 +25,8 @@ class ServiceNowKnowledgeConfig(BaseSettings):
         "sys_id,number,short_description,description,kb_knowledge_base,score"
     )
     servicenow_article_fields: str = (
-        "sys_id,number,short_description,text,kb_knowledge_base,kb_category,workflow_state,"
-        "published,valid_to,sys_updated_on"
+        "sys_id,number,short_description,text,kb_knowledge_base,kb_category,workflow,"
+        "valid_to,sys_updated_on"
     )
     servicenow_category_fields: str = "sys_id,label,value,parent_id,full_category,active"
     request_timeout_seconds: float = Field(default=10, gt=0, le=120)
