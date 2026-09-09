@@ -6,6 +6,8 @@ from threading import Lock
 from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
 from fastmcp.server.auth import AuthCheck, TokenVerifier, require_scopes
+from starlette.requests import Request
+from starlette.responses import JSONResponse
 
 from .auth import (
     ApimClaimsTokenVerifier,
@@ -79,12 +81,19 @@ class _ServiceRuntime:
         self._config = config
         self._state: dict[str, object] = {"service": service}
         self._lock = Lock()
+        self._ready = False
+
+    @property
+    def ready(self) -> bool:
+        return self._ready
 
     @asynccontextmanager
     async def lifespan(self, _: FastMCP) -> AsyncIterator[dict[str, object]]:
+        self._ready = True
         try:
             yield self._state
         finally:
+            self._ready = False
             owned_client = self._state.get("owned_client")
             if isinstance(owned_client, ServiceNowKnowledgeApiClient):
                 await owned_client.aclose()
@@ -184,10 +193,27 @@ def create_mcp(
         except KnowledgeMcpError as exc:
             raise ToolError(f"{exc.code}: {exc.message}") from None
 
+    @server.custom_route("/mcp/live", methods=["GET"])
+    async def health_live(_: Request) -> JSONResponse:
+        return JSONResponse({"status": "healthy", "service": "servicenow-knowledge-mcp"})
+
+    @server.custom_route("/mcp/health", methods=["GET"])
+    @server.custom_route("/mcp/ready", methods=["GET"])
+    async def health_ready(_: Request) -> JSONResponse:
+        is_ready = runtime.ready
+        return JSONResponse(
+            {
+                "status": "ready" if is_ready else "not_ready",
+                "service": "servicenow-knowledge-mcp",
+            },
+            status_code=200 if is_ready else 503,
+        )
+
     return server
 
 
 mcp = create_mcp()
+mcp_app = mcp.http_app(path="/mcp", stateless_http=True)
 
 
 def main() -> None:
