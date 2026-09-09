@@ -50,9 +50,29 @@ class KnowledgeArticle(BaseModel):
 
 
 class KnowledgeAttachment(BaseModel):
-    article_id: str
-    attachment_id: str
-    filename: str | None = None
-    content_type: str
-    size_bytes: int = Field(ge=0)
-    content_base64: str
+    article_id: str = Field(
+        description="ServiceNow sys_id of the knowledge article that owns the attachment.",
+        examples=["9b4f5c1adb1230106a3e1b1f299619d2"],
+    )
+    attachment_id: str = Field(
+        description="ServiceNow sys_id of the attachment.",
+        examples=["2f6e8a91db5630106a3e1b1f299619a7"],
+    )
+    filename: str | None = Field(
+        default=None,
+        description="Original attachment filename, when provided by ServiceNow.",
+        examples=["network-troubleshooting.pdf"],
+    )
+    content_type: str = Field(
+        description="MIME type of the attachment content.",
+        examples=["application/pdf"],
+    )
+    size_bytes: int = Field(
+        ge=0,
+        description="Size of the decoded attachment content in bytes.",
+        examples=[24576],
+    )
+    content_base64: str = Field(
+        description="Base64-encoded attachment content.",
+        examples=["SGVsbG8gd29ybGQ="],
+    )
