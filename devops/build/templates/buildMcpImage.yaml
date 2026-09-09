@@ -15,27 +15,14 @@ steps:
     displayName: 'Install uv'
   
   - script: |
-      cd src/servicenowautomation_mcp
-      if [ -f ".env.local" ]; then
-        cp .env.local .env
-      else
-        echo ".env.local not found in src/servicenowautomation_mcp"
-        exit 1
-      fi
-    displayName: 'Prepare env file'
-
-  - script: |
-      cd src/servicenowautomation_mcp
       uv sync --frozen --extra dev
     displayName: 'Install dependencies'
 
   - script: |
-      cd src/servicenowautomation_mcp
-      uv run ruff check .
+      uv run ruff check src/servicenow_mcp tests
     displayName: 'Linting'
 
   - script: |
-      cd src/servicenowautomation_mcp
       uv run python -m pytest
     displayName: 'Testing'
     condition: succeeded()
@@ -47,7 +34,7 @@ steps:
       containerRegistry: "ACR2:TEST"
       repository: "${{ parameters.repository  }}"
       command: "build"
-      Dockerfile: "Dockerfile-Mcp"
+      Dockerfile: "Dockerfile"
       buildContext: "$(System.DefaultWorkingDirectory)"
 
   - task: Docker@2

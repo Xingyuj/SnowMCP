@@ -67,7 +67,6 @@ jobs:
             
             # Use SonarQube-specific .dockerignore that includes .git folder
             cp .dockerignore.sonar .dockerignore
-            cp src/servicenowautomation_mcp/.env.local .env
             docker build \
               --build-arg Azure_DevOps_Build_Id=$(Build.BuildId) \
               --build-arg SQ_HOST=$(SonarQubeUrl) \
