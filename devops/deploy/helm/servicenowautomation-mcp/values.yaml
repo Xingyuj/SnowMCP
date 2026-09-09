@@ -127,6 +127,11 @@ env:
   # so keep the name aligned with the ConfigMap name
   configMapRef: {}
 
+# Optional pre-created Kubernetes Secret containing ServiceNow settings such as
+# SERVICENOW_BASE_URL and either SERVICENOW_ACCESS_TOKEN or the client credentials.
+secretEnv:
+  existingSecret: ""
+
 configMap:
   # - name: config-servicenowautomation-mcp
   #   data:

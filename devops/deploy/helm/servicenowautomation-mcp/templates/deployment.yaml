@@ -51,7 +51,7 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           args:
             - uvicorn
-            - main:mcp_app
+            - servicenow_mcp.server:mcp_app
             - --host
             - {{ .Values.mcp.args.host | quote }}
             - --port
@@ -63,7 +63,11 @@ spec:
               value: "{{ .Values.pathBase }}-{{ .Values.inf.conf.environment }}"
           envFrom:
             - configMapRef:
-                name: {{ $cfgname }}  
+                name: {{ $cfgname }}
+            {{- if .Values.secretEnv.existingSecret }}
+            - secretRef:
+                name: {{ .Values.secretEnv.existingSecret | quote }}
+            {{- end }}
           ports:
             - name: http
               containerPort: {{ .Values.mcp.args.port }}

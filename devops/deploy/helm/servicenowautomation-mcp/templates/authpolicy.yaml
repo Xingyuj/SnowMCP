@@ -12,4 +12,3 @@ spec:
     # to:
     # - operation:
     #     methods: ["GET"]
-{{- end }}
