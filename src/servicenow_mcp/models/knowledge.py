@@ -42,7 +42,8 @@ class KnowledgeArticle(BaseModel):
     content: str
     knowledge_base: str | None = None
     category: str | None = None
-    workflow: str | None = None
+    workflow_state: str | None = None
+    published: str | None = None
     valid_to: str | None = None
     updated_on: str | None = None
     link: str | None = None

@@ -309,7 +309,8 @@ class ServiceNowKnowledgeApiClient(KnowledgeBackend):
                 raw.get("knowledge_base") or raw.get("kb_knowledge_base")
             ),
             category=_display_value(raw.get("category") or raw.get("kb_category")),
-            workflow=_optional_string(raw.get("workflow")),
+            workflow_state=_optional_string(raw.get("workflow_state")),
+            published=_optional_string(raw.get("published")),
             valid_to=_optional_string(raw.get("valid_to")),
             updated_on=_optional_string(raw.get("updated_on") or raw.get("sys_updated_on")),
             link=_optional_string(raw.get("link") or raw.get("url")),
