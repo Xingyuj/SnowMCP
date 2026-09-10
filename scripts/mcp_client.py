@@ -20,17 +20,22 @@ class McpHttpClient:
         server_url: str,
         timeout: float,
         token: str | None = None,
+        subscription_key: str | None = None,
+        protocol_version: str = "2025-03-26",
     ) -> None:
         self._next_id = 0
         self._session_id: str | None = None
+        self._protocol_version = protocol_version
+        self._server_url = server_url
         headers = {
             "Content-Type": "application/json",
             "Accept": "application/json, text/event-stream",
         }
         if token:
             headers["Authorization"] = f"Bearer {token}"
+        if subscription_key:
+            headers["Ocp-Apim-Subscription-Key"] = subscription_key
         self._client = httpx.AsyncClient(
-            base_url=server_url,
             timeout=timeout,
             follow_redirects=True,
             headers=headers,
@@ -52,7 +57,7 @@ class McpHttpClient:
         self._next_id += 1
         request_id = self._next_id
         response = await self._client.post(
-            "",
+            self._server_url,
             headers=self._headers(),
             json={
                 "jsonrpc": "2.0",
@@ -74,7 +79,7 @@ class McpHttpClient:
 
     async def _notify(self, method: str) -> None:
         response = await self._client.post(
-            "",
+            self._server_url,
             headers=self._headers(),
             json={"jsonrpc": "2.0", "method": method},
         )
@@ -84,7 +89,7 @@ class McpHttpClient:
         await self._request(
             "initialize",
             {
-                "protocolVersion": "2025-06-18",
+                "protocolVersion": self._protocol_version,
                 "capabilities": {},
                 "clientInfo": {"name": "local-python-client", "version": "1.0"},
             },
@@ -139,6 +144,16 @@ def _parser() -> argparse.ArgumentParser:
         default=os.getenv("MCP_ACCESS_TOKEN"),
         help="Bearer token (defaults to MCP_ACCESS_TOKEN)",
     )
+    parser.add_argument(
+        "--subscription-key",
+        default=os.getenv("APIM_SUBSCRIPTION_KEY"),
+        help="APIM subscription key (defaults to APIM_SUBSCRIPTION_KEY)",
+    )
+    parser.add_argument(
+        "--protocol-version",
+        default=os.getenv("MCP_PROTOCOL_VERSION", "2025-03-26"),
+        help="MCP protocol version (defaults to MCP_PROTOCOL_VERSION or 2025-03-26)",
+    )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     subparsers.add_parser("list", help="List tools exposed by the MCP server")
@@ -162,7 +177,13 @@ def _parser() -> argparse.ArgumentParser:
 
 
 async def _run(args: argparse.Namespace) -> None:
-    async with McpHttpClient(args.server, args.timeout, args.token) as client:
+    async with McpHttpClient(
+        args.server,
+        args.timeout,
+        args.token,
+        args.subscription_key,
+        args.protocol_version,
+    ) as client:
         if args.command == "list":
             result = await client.list_tools()
             tools = result.get("tools", [])

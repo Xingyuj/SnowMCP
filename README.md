@@ -115,11 +115,21 @@ configuration looks like this:
       "type": "http",
       "url": "https://your-mcp-host.example/mcp",
       "headers": {
-        "Authorization": "Bearer ${MCP_ACCESS_TOKEN}"
+        "Authorization": "Bearer ${MCP_ACCESS_TOKEN}",
+        "Ocp-Apim-Subscription-Key": "${APIM_SUBSCRIPTION_KEY}"
       }
     }
   }
 }
+```
+
+To list tools through APIM with the included Python client:
+
+```bash
+export APIM_SUBSCRIPTION_KEY='<subscription-key>'
+python scripts/mcp_client.py \
+  --server https://api.np.bupa.com.au/ext/dev/servicenowautomation/mcp \
+  list
 ```
 
 Exact field names and configuration file locations vary by client. In production, the client sends
