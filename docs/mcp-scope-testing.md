@@ -21,9 +21,9 @@ intentionally does not repeat cryptographic token validation.
 | Tool | Required scope |
 | --- | --- |
 | `search_knowledge` | `knowledge.search` |
-| `list_knowledge_categories` | `knowledge.category.read` |
-| `get_knowledge_article` | `knowledge.article.read` |
-| `get_knowledge_attachment` | `knowledge.attachment.read` |
+| `list_kb_categories` | `knowledge.category.read` |
+| `get_kb_article` | `knowledge.article.read` |
+| `get_kb_article_attachment` | `knowledge.attachment.read` |
 
 These scopes are part of the MCP endpoint's authorization contract and are fixed in
 `src/servicenow_mcp/scopes.py`. Changing the contract requires a reviewed code change rather than

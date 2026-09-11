@@ -81,9 +81,9 @@ async def test_fastmcp_lists_all_retrieval_tools():
         tools = await client.list_tools()
     assert [tool.name for tool in tools] == [
         "search_knowledge",
-        "list_knowledge_categories",
-        "get_knowledge_article",
-        "get_knowledge_attachment",
+        "list_kb_categories",
+        "get_kb_article",
+        "get_kb_article_attachment",
     ]
     assert "ranked candidates" in tools[0].description
     assert "hierarchy" in tools[1].description
@@ -95,10 +95,10 @@ async def test_fastmcp_lists_all_retrieval_tools():
 async def test_all_fastmcp_tool_contracts_in_process():
     async with server_client() as client:
         search = await client.call_tool("search_knowledge", {"query": "access"})
-        categories = await client.call_tool("list_knowledge_categories", {})
-        article = await client.call_tool("get_knowledge_article", {"article_id": "article-1"})
+        categories = await client.call_tool("list_kb_categories", {})
+        article = await client.call_tool("get_kb_article", {"article_id": "article-1"})
         attachment = await client.call_tool(
-            "get_knowledge_attachment",
+            "get_kb_article_attachment",
             {"article_sys_id": "article-1", "attachment_sys_id": "attachment-1"},
         )
     assert search.structured_content is not None and search.structured_content["total"] == 1
@@ -126,9 +126,9 @@ async def test_every_tool_requires_its_own_scope_when_apim_auth_is_enabled():
     )
     expected_scopes = {
         "search_knowledge": SEARCH_KNOWLEDGE_SCOPE,
-        "list_knowledge_categories": CATEGORY_READ_SCOPE,
-        "get_knowledge_article": ARTICLE_READ_SCOPE,
-        "get_knowledge_attachment": ATTACHMENT_READ_SCOPE,
+        "list_kb_categories": CATEGORY_READ_SCOPE,
+        "get_kb_article": ARTICLE_READ_SCOPE,
+        "get_kb_article_attachment": ATTACHMENT_READ_SCOPE,
     }
 
     for tool_name, required_scope in expected_scopes.items():

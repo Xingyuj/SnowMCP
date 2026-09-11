@@ -157,7 +157,7 @@ def create_mcp(
         ),
         auth=_scope_check(config, CATEGORY_READ_SCOPE),
     )
-    async def list_knowledge_categories() -> KnowledgeCategoriesResponse:
+    async def list_kb_categories() -> KnowledgeCategoriesResponse:
         try:
             return await runtime.resolve_service().list_knowledge_categories()
         except KnowledgeMcpError as exc:
@@ -170,7 +170,7 @@ def create_mcp(
         ),
         auth=_scope_check(config, ARTICLE_READ_SCOPE),
     )
-    async def get_knowledge_article(article_id: str) -> KnowledgeArticle:
+    async def get_kb_article(article_id: str) -> KnowledgeArticle:
         try:
             return await runtime.resolve_service().get_knowledge_article(article_id)
         except KnowledgeMcpError as exc:
@@ -183,7 +183,7 @@ def create_mcp(
         ),
         auth=_scope_check(config, ATTACHMENT_READ_SCOPE),
     )
-    async def get_knowledge_attachment(
+    async def get_kb_article_attachment(
         article_sys_id: str, attachment_sys_id: str
     ) -> KnowledgeAttachment:
         try:

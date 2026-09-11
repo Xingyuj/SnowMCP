@@ -266,9 +266,9 @@ Expected tools:
 
 ```text
 search_knowledge
-list_knowledge_categories
-get_knowledge_article
-get_knowledge_attachment
+list_kb_categories
+get_kb_article
+get_kb_article_attachment
 ```
 
 List every Knowledge category visible to the configured ServiceNow identity (the server

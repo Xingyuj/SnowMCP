@@ -140,17 +140,17 @@ the Entra ID access token to APIM.
 | Tool | Description | Default scope when MCP auth is enabled |
 | --- | --- | --- |
 | `search_knowledge` | Search using a natural-language query or keywords; returns ordered candidates and snippets | `knowledge.search` |
-| `list_knowledge_categories` | List every accessible category, including parent IDs and full hierarchy paths | `knowledge.category.read` |
-| `get_knowledge_article` | Retrieve canonical article content and publication/validity metadata | `knowledge.article.read` |
+| `list_kb_categories` | List every accessible category, including parent IDs and full hierarchy paths | `knowledge.category.read` |
+| `get_kb_article` | Retrieve canonical article content and publication/validity metadata | `knowledge.article.read` |
 
 Typical retrieval flow:
 
 ```text
 search_knowledge
       │
-      ├── get_knowledge_article
+      ├── get_kb_article
       │
-      └── list_knowledge_categories (for discovery or filtering context)
+      └── list_kb_categories (for discovery or filtering context)
 ```
 
 `search_knowledge` preserves the order returned by ServiceNow and does not claim semantic, vector,
@@ -178,7 +178,7 @@ flowchart TB
         Transport[Streamable HTTP transport]
         Claims["Extract APIM-validated claims<br/>no JWT signature validation"]
         Scopes[Per-tool scope checks]
-        Tools["Tool handlers<br/>search_knowledge<br/>list_knowledge_categories<br/>get_knowledge_article"]
+        Tools["Tool handlers<br/>search_knowledge<br/>list_kb_categories<br/>get_kb_article"]
         Resolver["Service resolver + shared state<br/>lazy initialization and reuse"]
         Service[KnowledgeService]
         API[ServiceNow Knowledge API Client]

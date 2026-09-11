@@ -157,7 +157,7 @@ def _parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     subparsers.add_parser("list", help="List tools exposed by the MCP server")
-    subparsers.add_parser("categories", help="Call list_knowledge_categories")
+    subparsers.add_parser("categories", help="Call list_kb_categories")
 
     search = subparsers.add_parser("search", help="Call search_knowledge")
     search.add_argument("query")
@@ -165,10 +165,10 @@ def _parser() -> argparse.ArgumentParser:
     search.add_argument("--knowledge-base")
     search.add_argument("--language")
 
-    article = subparsers.add_parser("article", help="Call get_knowledge_article")
+    article = subparsers.add_parser("article", help="Call get_kb_article")
     article.add_argument("article_id")
 
-    attachment = subparsers.add_parser("attachment", help="Call get_knowledge_attachment")
+    attachment = subparsers.add_parser("attachment", help="Call get_kb_article_attachment")
     attachment.add_argument("article_id")
     attachment.add_argument("attachment_id")
     attachment.add_argument("--output", type=Path, help="Decode and save the attachment body")
@@ -192,7 +192,7 @@ async def _run(args: argparse.Namespace) -> None:
             return
 
         if args.command == "categories":
-            result = await client.call_tool("list_knowledge_categories", {})
+            result = await client.call_tool("list_kb_categories", {})
         elif args.command == "search":
             arguments = {
                 key: value
@@ -207,11 +207,11 @@ async def _run(args: argparse.Namespace) -> None:
             result = await client.call_tool("search_knowledge", arguments)
         elif args.command == "article":
             result = await client.call_tool(
-                "get_knowledge_article", {"article_id": args.article_id}
+                "get_kb_article", {"article_id": args.article_id}
             )
         elif args.command == "attachment":
             result = await client.call_tool(
-                "get_knowledge_attachment",
+                "get_kb_article_attachment",
                 {
                     "article_sys_id": args.article_id,
                     "attachment_sys_id": args.attachment_id,
