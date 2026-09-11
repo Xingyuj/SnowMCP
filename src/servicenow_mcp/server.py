@@ -2,10 +2,13 @@ import logging
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from threading import Lock
+from typing import Annotated
 
 from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
 from fastmcp.server.auth import AuthCheck, TokenVerifier, require_scopes
+from mcp.types import ToolAnnotations
+from pydantic import Field
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
@@ -33,6 +36,14 @@ from .scopes import (
 from .service import KnowledgeService
 
 log = logging.getLogger("servicenowautomation_mcp")
+
+_READ_ONLY_EXTERNAL_TOOL = ToolAnnotations(
+    readOnlyHint=True,
+    destructiveHint=False,
+    idempotentHint=True,
+    openWorldHint=True,
+)
+_IDENTIFIER_PATTERN = r"^[^\s/\\?#]{1,255}$"
 
 
 def build_service(
@@ -131,17 +142,49 @@ def create_mcp(
     )
 
     @server.tool(
+        title="Search ServiceNow Knowledge",
         description=(
-            "Use this tool to find relevant enterprise Knowledge Articles from a natural-language "
-            "question or keywords. It returns ranked candidates and snippets, not complete article bodies."
+            "Search accessible ServiceNow Knowledge Articles using a natural-language query or "
+            "keywords. Returns ranked article candidates with identifiers and snippets, not "
+            "canonical article content; retrieve a selected result with get_kb_article."
         ),
+        annotations=_READ_ONLY_EXTERNAL_TOOL,
         auth=_scope_check(config, SEARCH_KNOWLEDGE_SCOPE),
     )
     async def search_knowledge(
-        query: str,
-        limit: int | None = None,
-        knowledge_base: str | None = None,
-        language: str | None = None,
+        query: Annotated[
+            str,
+            Field(
+                min_length=1,
+                description="Natural-language question or keywords used to find Knowledge Articles.",
+            ),
+        ],
+        limit: Annotated[
+            int | None,
+            Field(
+                ge=1,
+                description=(
+                    "Maximum number of candidates to return. Uses the configured default when omitted "
+                    "and cannot exceed the server-configured maximum."
+                ),
+            ),
+        ] = None,
+        knowledge_base: Annotated[
+            str | None,
+            Field(
+                min_length=1,
+                description=(
+                    "Optional ServiceNow Knowledge Base identifier used to restrict the search."
+                ),
+            ),
+        ] = None,
+        language: Annotated[
+            str | None,
+            Field(
+                min_length=1,
+                description="Optional ServiceNow article language used to restrict the search.",
+            ),
+        ] = None,
     ) -> KnowledgeSearchResponse:
         try:
             return await runtime.resolve_service().search_knowledge(
@@ -151,10 +194,13 @@ def create_mcp(
             raise ToolError(f"{exc.code}: {exc.message}") from None
 
     @server.tool(
+        title="List Knowledge Base Categories",
         description=(
-            "Use this tool to list all accessible ServiceNow Knowledge categories and their hierarchy. "
-            "Results include category identifiers, labels, parent identifiers, and full paths."
+            "List all accessible ServiceNow Knowledge Base categories. Returns category identifiers, "
+            "labels, parent identifiers, and full hierarchy paths for discovery or search filtering; "
+            "does not return Knowledge Articles."
         ),
+        annotations=_READ_ONLY_EXTERNAL_TOOL,
         auth=_scope_check(config, CATEGORY_READ_SCOPE),
     )
     async def list_kb_categories() -> KnowledgeCategoriesResponse:
@@ -164,27 +210,60 @@ def create_mcp(
             raise ToolError(f"{exc.code}: {exc.message}") from None
 
     @server.tool(
+        title="Get Knowledge Base Article",
         description=(
-            "Retrieve complete canonical content and publication metadata for a Knowledge Article. "
-            "Provide the ServiceNow article identifier as article_id."
+            "Retrieve the canonical content and available publication metadata for one ServiceNow "
+            "Knowledge Article. Accepts the article sys_id or article number; use this after selecting "
+            "a search result or when the caller already knows the article identifier."
         ),
+        annotations=_READ_ONLY_EXTERNAL_TOOL,
         auth=_scope_check(config, ARTICLE_READ_SCOPE),
     )
-    async def get_kb_article(article_id: str) -> KnowledgeArticle:
+    async def get_kb_article(
+        article_id: Annotated[
+            str,
+            Field(
+                min_length=1,
+                max_length=255,
+                pattern=_IDENTIFIER_PATTERN,
+                description="ServiceNow Knowledge Article sys_id or article number.",
+            ),
+        ],
+    ) -> KnowledgeArticle:
         try:
             return await runtime.resolve_service().get_knowledge_article(article_id)
         except KnowledgeMcpError as exc:
             raise ToolError(f"{exc.code}: {exc.message}") from None
 
     @server.tool(
+        title="Get Knowledge Base Article Attachment",
         description=(
-            "Use this supporting tool only when a selected Knowledge Article references an attachment "
-            "whose contents are required. It returns bounded base64 binary data and does not parse it."
+            "Retrieve one attachment belonging to a selected ServiceNow Knowledge Article. Requires "
+            "both ServiceNow sys_ids and returns size-limited base64-encoded binary content with file "
+            "metadata; does not parse or interpret the attachment."
         ),
+        annotations=_READ_ONLY_EXTERNAL_TOOL,
         auth=_scope_check(config, ATTACHMENT_READ_SCOPE),
     )
     async def get_kb_article_attachment(
-        article_sys_id: str, attachment_sys_id: str
+        article_sys_id: Annotated[
+            str,
+            Field(
+                min_length=1,
+                max_length=255,
+                pattern=_IDENTIFIER_PATTERN,
+                description="ServiceNow sys_id of the Knowledge Article that owns the attachment.",
+            ),
+        ],
+        attachment_sys_id: Annotated[
+            str,
+            Field(
+                min_length=1,
+                max_length=255,
+                pattern=_IDENTIFIER_PATTERN,
+                description="ServiceNow sys_id of the attachment to retrieve.",
+            ),
+        ],
     ) -> KnowledgeAttachment:
         try:
             return await runtime.resolve_service().get_knowledge_attachment(

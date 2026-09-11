@@ -85,11 +85,77 @@ async def test_fastmcp_lists_all_retrieval_tools():
         "get_kb_article",
         "get_kb_article_attachment",
     ]
-    assert "ranked candidates" in tools[0].description
-    assert "hierarchy" in tools[1].description
-    assert "ServiceNow article identifier as article_id" in tools[2].description
-    assert "search_knowledge" not in tools[2].description
-    assert "only when" in tools[3].description
+    assert [tool.title for tool in tools] == [
+        "Search ServiceNow Knowledge",
+        "List Knowledge Base Categories",
+        "Get Knowledge Base Article",
+        "Get Knowledge Base Article Attachment",
+    ]
+    assert "ranked article candidates" in tools[0].description
+    assert "does not return Knowledge Articles" in tools[1].description
+    assert "article sys_id or article number" in tools[2].description
+    assert "does not parse or interpret" in tools[3].description
+
+
+async def test_fastmcp_tool_metadata_and_schemas_are_complete():
+    async with server_client() as client:
+        tools = await client.list_tools()
+
+    expected_required_inputs = {
+        "search_knowledge": {"query"},
+        "list_kb_categories": set(),
+        "get_kb_article": {"article_id"},
+        "get_kb_article_attachment": {"article_sys_id", "attachment_sys_id"},
+    }
+    expected_required_outputs = {
+        "search_knowledge": {"query", "total", "results"},
+        "list_kb_categories": {"total", "results"},
+        "get_kb_article": {"id", "title", "content"},
+        "get_kb_article_attachment": {
+            "article_id",
+            "attachment_id",
+            "content_type",
+            "size_bytes",
+            "content_base64",
+        },
+    }
+
+    for tool in tools:
+        assert tool.description
+        assert tool.annotations is not None
+        assert tool.annotations.readOnlyHint is True
+        assert tool.annotations.destructiveHint is False
+        assert tool.annotations.idempotentHint is True
+        assert tool.annotations.openWorldHint is True
+
+        assert tool.inputSchema["additionalProperties"] is False
+        assert set(tool.inputSchema.get("required", [])) == expected_required_inputs[tool.name]
+        _assert_schema_property_descriptions(tool.inputSchema)
+
+        assert tool.outputSchema is not None
+        assert tool.outputSchema["additionalProperties"] is False
+        assert set(tool.outputSchema["required"]) == expected_required_outputs[tool.name]
+        _assert_schema_property_descriptions(tool.outputSchema)
+
+    search_schema = tools[0].inputSchema["properties"]
+    assert search_schema["query"]["minLength"] == 1
+    assert search_schema["limit"]["anyOf"][0]["minimum"] == 1
+    article_id_schema = tools[2].inputSchema["properties"]["article_id"]
+    assert article_id_schema["maxLength"] == 255
+    assert article_id_schema["pattern"] == r"^[^\s/\\?#]{1,255}$"
+    attachment_output = tools[3].outputSchema["properties"]
+    assert attachment_output["content_base64"]["contentEncoding"] == "base64"
+
+
+def _assert_schema_property_descriptions(schema: dict[str, object]) -> None:
+    properties = schema.get("properties", {})
+    assert isinstance(properties, dict)
+    for property_schema in properties.values():
+        assert isinstance(property_schema, dict)
+        assert property_schema.get("description")
+        items = property_schema.get("items")
+        if isinstance(items, dict):
+            _assert_schema_property_descriptions(items)
 
 
 async def test_all_fastmcp_tool_contracts_in_process():
