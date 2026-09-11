@@ -21,7 +21,7 @@ from servicenow_mcp.scopes import (
     CATEGORY_READ_SCOPE,
     SEARCH_KNOWLEDGE_SCOPE,
 )
-from servicenow_mcp.server import create_mcp
+from servicenow_mcp.server import SERVER_INSTRUCTIONS, SERVER_NAME, create_mcp
 from servicenow_mcp.service import KnowledgeService
 
 TEST_SERVICENOW_BASE_URL = "https://instance.example"
@@ -74,6 +74,25 @@ class ToolClient(KnowledgeBackend):
 def server_client(config: ServiceNowKnowledgeConfig | None = None) -> Client:
     config = config or ServiceNowKnowledgeConfig(servicenow_base_url=TEST_SERVICENOW_BASE_URL)
     return Client(create_mcp(KnowledgeService(ToolClient(), config)))
+
+
+async def test_server_identity_and_instructions_are_stable():
+    async with server_client() as client:
+        initialization = client.initialize_result
+
+    assert initialization is not None
+    assert initialization.serverInfo.name == SERVER_NAME == "ServiceNow MCP"
+    assert initialization.instructions == SERVER_INSTRUCTIONS
+    assert "read-only access" in SERVER_INSTRUCTIONS
+    assert "authoritative enterprise knowledge" in SERVER_INSTRUCTIONS
+    assert "instead of inventing content" in SERVER_INSTRUCTIONS
+    for tool_name in (
+        "search_knowledge",
+        "list_kb_categories",
+        "get_kb_article",
+        "get_kb_article_attachment",
+    ):
+        assert tool_name not in SERVER_INSTRUCTIONS
 
 
 async def test_fastmcp_lists_all_retrieval_tools():

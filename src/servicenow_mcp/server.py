@@ -37,6 +37,19 @@ from .service import KnowledgeService
 
 log = logging.getLogger("servicenowautomation_mcp")
 
+SERVER_NAME = "ServiceNow MCP"
+SERVER_INSTRUCTIONS = (
+    "Provides read-only access to authoritative enterprise knowledge stored in ServiceNow. "
+    "Use the available tools to discover Knowledge Base categories, find relevant Knowledge "
+    "Articles, retrieve canonical article content and metadata, and access associated attachments "
+    "when required. "
+    "Treat search results as candidates rather than complete article content. When a caller "
+    "provides a specific article identifier, prefer direct retrieval over an unnecessary search. "
+    "Retrieve attachments only when they are relevant to a selected article and explicitly needed. "
+    "Base responses only on records returned by ServiceNow, preserve article identifiers and "
+    "relevant source metadata for traceability, and clearly report missing, inaccessible, or "
+    "incomplete information instead of inventing content."
+)
 _READ_ONLY_EXTERNAL_TOOL = ToolAnnotations(
     readOnlyHint=True,
     destructiveHint=False,
@@ -135,8 +148,8 @@ def create_mcp(
     runtime = _ServiceRuntime(config, service)
 
     server = FastMCP(
-        "ServiceNowAutomation",
-        instructions="Retrieve authoritative enterprise Knowledge Articles without generating answers.",
+        SERVER_NAME,
+        instructions=SERVER_INSTRUCTIONS,
         auth=build_apim_auth(config),
         lifespan=runtime.lifespan,
     )

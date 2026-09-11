@@ -141,7 +141,7 @@ curl --ssl-revoke-best-effort -sS -X POST \
   --data-urlencode "scope=${SERVICENOW_OAUTH_SCOPE}"
 ```
 
-This guide explains how to use [`scripts/mcp_client.py`](../scripts/mcp_client.py) to call the local ServiceNowAutomation MCP server.
+This guide explains how to use [`scripts/mcp_client.py`](../scripts/mcp_client.py) to call the local ServiceNow MCP server.
 
 The client communicates over HTTP/JSON-RPC and does not require the `fastmcp` CLI.
 

@@ -1,15 +1,15 @@
 <div align="center">
 
-# ServiceNowAutomation MCP Server
+# ServiceNow MCP Server
 
-![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)
+![Python 3.12+](https://img.shields.io/badge/Python-3.12%2B-3776AB?logo=python&logoColor=white)
 ![FastMCP 3.x](https://img.shields.io/badge/FastMCP-3.x-009688)
-![Tools](https://img.shields.io/badge/Tools-3-00A98F)
+![Tools](https://img.shields.io/badge/Tools-4-00A98F)
 ![Access](https://img.shields.io/badge/ServiceNow-read--only-6C47FF)
 
-Connect AI assistants to authoritative ServiceNow Knowledge content. Three focused, read-only tools
-for searching articles, browsing categories, and retrieving canonical content—available to any MCP
-client over Streamable HTTP.
+Connect AI assistants to authoritative ServiceNow Knowledge content. Four focused, read-only tools
+support article search, category discovery, canonical content retrieval, and attachment retrieval
+over Streamable HTTP.
 
 </div>
 
