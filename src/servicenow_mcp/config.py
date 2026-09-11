@@ -15,6 +15,7 @@ class ServiceNowKnowledgeConfig(BaseSettings):
     servicenow_client_secret: SecretStr | None = Field(default=None, repr=False)
     servicenow_oauth_token_path: str = "oauth_token.do"
     servicenow_oauth_scope: str | None = None
+    servicenow_oauth_diagnostics: bool = False
     apim_auth_enabled: bool = False
     apim_scope_claim_names: str = "scp,scope,roles"
     apim_subject_claim_names: str = "oid,sub"

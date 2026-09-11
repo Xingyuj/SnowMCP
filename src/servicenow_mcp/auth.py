@@ -1,4 +1,6 @@
 import asyncio
+import hashlib
+import logging
 from abc import ABC, abstractmethod
 from collections.abc import Awaitable
 from time import monotonic
@@ -11,6 +13,13 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from .errors import ErrorCode, KnowledgeMcpError
 from .tls import system_ssl_context
+
+log = logging.getLogger("servicenowautomation_mcp")
+
+
+def _credential_fingerprint(value: str) -> str:
+    """Return a non-reversible, short identifier suitable for comparing credentials."""
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()[:12]
 
 
 class AuthorizationContext(BaseModel):
@@ -123,6 +132,7 @@ class ClientCredentialsAuthenticator(ServiceNowAuthenticator):
         scope: str | None = None,
         timeout: float = 10,
         http_client: httpx.AsyncClient | None = None,
+        diagnostics_enabled: bool = False,
     ) -> None:
         self._client_id = client_id
         self._client_secret = client_secret
@@ -137,6 +147,21 @@ class ClientCredentialsAuthenticator(ServiceNowAuthenticator):
         self._access_token: str | None = None
         self._expires_at = 0.0
         self._lock = asyncio.Lock()
+        if diagnostics_enabled:
+            secret_bytes = client_secret.encode("utf-8")
+            log.warning(
+                "ServiceNow OAuth credential diagnostics: "
+                "client_id_sha256=%s client_secret_sha256=%s client_secret_bytes=%d "
+                "client_secret_boundary_whitespace=%s client_secret_line_break=%s "
+                "token_path=%s scope_configured=%s",
+                _credential_fingerprint(client_id),
+                _credential_fingerprint(client_secret),
+                len(secret_bytes),
+                client_secret != client_secret.strip(),
+                "\n" in client_secret or "\r" in client_secret,
+                token_path,
+                bool(scope),
+            )
 
     async def aclose(self) -> None:
         if self._owns_client:

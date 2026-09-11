@@ -1,5 +1,6 @@
 import base64
 import json
+import logging
 
 import httpx
 import pytest
@@ -62,6 +63,44 @@ async def test_delegated_token_does_not_request_client_credentials_token():
 
     headers = await authenticator.headers(AuthorizationContext(delegated_token="user-token"))
     assert headers == {"Authorization": "Bearer user-token"}
+    await http_client.aclose()
+
+
+@pytest.mark.asyncio
+async def test_oauth_diagnostics_log_fingerprints_without_raw_credentials(caplog):
+    http_client = httpx.AsyncClient(base_url="https://instance.example")
+    with caplog.at_level(logging.WARNING, logger="servicenowautomation_mcp"):
+        ClientCredentialsAuthenticator(
+            base_url="https://instance.example",
+            client_id="client-id",
+            client_secret=" client-secret\n",
+            diagnostics_enabled=True,
+            http_client=http_client,
+        )
+
+    message = caplog.text
+    assert "client_id_sha256=2d8aa0e8d580" in message
+    assert "client_secret_sha256=65ccde0a00ac" in message
+    assert "client_secret_bytes=15" in message
+    assert "client_secret_boundary_whitespace=True" in message
+    assert "client_secret_line_break=True" in message
+    assert "client-id" not in message
+    assert "client-secret" not in message
+    await http_client.aclose()
+
+
+@pytest.mark.asyncio
+async def test_oauth_diagnostics_are_disabled_by_default(caplog):
+    http_client = httpx.AsyncClient(base_url="https://instance.example")
+    with caplog.at_level(logging.WARNING, logger="servicenowautomation_mcp"):
+        ClientCredentialsAuthenticator(
+            base_url="https://instance.example",
+            client_id="client-id",
+            client_secret="client-secret",
+            http_client=http_client,
+        )
+
+    assert "OAuth credential diagnostics" not in caplog.text
     await http_client.aclose()
 
 

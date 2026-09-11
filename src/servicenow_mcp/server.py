@@ -78,6 +78,7 @@ def build_service(
             token_path=config.servicenow_oauth_token_path,
             scope=config.servicenow_oauth_scope,
             timeout=config.request_timeout_seconds,
+            diagnostics_enabled=config.servicenow_oauth_diagnostics,
         )
     client = ServiceNowKnowledgeApiClient(config, authenticator)
     return KnowledgeService(client, config), client

@@ -64,6 +64,7 @@ SERVICENOW_CLIENT_ID=your-client-id
 SERVICENOW_CLIENT_SECRET=your-client-secret
 SERVICENOW_OAUTH_TOKEN_PATH=oauth_token.do
 SERVICENOW_OAUTH_SCOPE=
+SERVICENOW_OAUTH_DIAGNOSTICS=false
 ```
 
 Do not commit `.env` or expose access tokens and client secrets in logs or screenshots.
@@ -246,7 +247,7 @@ important groups are:
 | Area | Settings |
 | --- | --- |
 | ServiceNow connection | `SERVICENOW_BASE_URL`, `SERVICENOW_KNOWLEDGE_API_PATH`, `SERVICENOW_CATEGORIES_API_PATH`, `SERVICENOW_API_VERSION` |
-| Outbound authentication | `SERVICENOW_ACCESS_TOKEN`, `SERVICENOW_CLIENT_ID`, `SERVICENOW_CLIENT_SECRET`, `SERVICENOW_OAUTH_TOKEN_PATH`, `SERVICENOW_OAUTH_SCOPE` |
+| Outbound authentication | `SERVICENOW_ACCESS_TOKEN`, `SERVICENOW_CLIENT_ID`, `SERVICENOW_CLIENT_SECRET`, `SERVICENOW_OAUTH_TOKEN_PATH`, `SERVICENOW_OAUTH_SCOPE`, `SERVICENOW_OAUTH_DIAGNOSTICS` |
 | Retrieval scope | `SERVICENOW_KNOWLEDGE_BASE`, `SERVICENOW_LANGUAGE`, `SERVICENOW_SEARCH_FIELDS`, `SERVICENOW_ARTICLE_FIELDS`, `SERVICENOW_CATEGORY_FIELDS` |
 | Response bounds | `DEFAULT_SEARCH_LIMIT`, `MAX_SEARCH_LIMIT`, `CATEGORY_PAGE_SIZE`, `MAX_ARTICLE_CONTENT_CHARS` |
 | Reliability | `REQUEST_TIMEOUT_SECONDS`, `TRANSIENT_RETRY_ATTEMPTS`, `RETRY_BACKOFF_SECONDS`, `LOG_LEVEL` |
@@ -255,6 +256,15 @@ important groups are:
 
 A configured static ServiceNow access token takes precedence over OAuth client credentials. When
 client credentials are used, the server obtains and caches the access token automatically.
+
+For temporary OAuth troubleshooting, set `SERVICENOW_OAUTH_DIAGNOSTICS=true`. When the OAuth
+authenticator is initialized, the server logs 12-character SHA-256 fingerprints for the client ID
+and secret, the secret's UTF-8 byte length, and whether it contains boundary whitespace or line
+breaks. It never logs either raw credential. Compare the secret fingerprint with the value held by
+the secret store using
+`printf '%s' "$SERVICENOW_CLIENT_SECRET" | shasum -a 256`, then disable diagnostics after the
+comparison. Treat the fingerprint as operationally sensitive even though it does not reveal a
+high-entropy client secret.
 
 The default Knowledge API path, field names, and query parameters are implementation assumptions.
 Validate them against the API version and customizations of the target ServiceNow instance before
