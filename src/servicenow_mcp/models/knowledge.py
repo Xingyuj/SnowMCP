@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 
 class KnowledgeSearchCandidate(BaseModel):
@@ -26,6 +26,16 @@ class KnowledgeSearchCandidate(BaseModel):
         default=None,
         description="Display value of the article's Knowledge Base, when available.",
     )
+
+    @computed_field(  # type: ignore[prop-decorator]
+        description=(
+            "ServiceNow sys_id to pass as article_id to get_kb_article for this candidate."
+        )
+    )
+    @property
+    def article_id(self) -> str:
+        """Expose an explicit chaining field while retaining the existing id field."""
+        return self.id
 
 
 class KnowledgeSearchResponse(BaseModel):

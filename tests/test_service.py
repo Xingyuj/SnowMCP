@@ -19,6 +19,7 @@ class RecordingClient(KnowledgeBackend):
     def __init__(self) -> None:
         self.search_args: tuple[Any, ...] | None = None
         self.category_calls: list[tuple[int, int, AuthorizationContext | None]] = []
+        self.article_calls: list[str] = []
 
     async def search(
         self,
@@ -29,7 +30,11 @@ class RecordingClient(KnowledgeBackend):
         authorization: AuthorizationContext | None = None,
     ) -> list[KnowledgeSearchCandidate]:
         self.search_args = (query, limit, knowledge_base, language, authorization)
-        return [KnowledgeSearchCandidate(id="1", title="Candidate", rank=1)]
+        return [
+            KnowledgeSearchCandidate(
+                id="9b4f5c1adb1230106a3e1b1f299619d2", title="Candidate", rank=1
+            )
+        ]
 
     async def get_categories(
         self,
@@ -50,6 +55,7 @@ class RecordingClient(KnowledgeBackend):
     async def get_article(
         self, article_id: str, authorization: AuthorizationContext | None = None
     ) -> KnowledgeArticle:
+        self.article_calls.append(article_id)
         return KnowledgeArticle(id=article_id, title="Article", content="Body")
 
     async def get_attachment(
@@ -100,6 +106,17 @@ async def test_search_defaults_and_explicit_scope():
 
 
 @pytest.mark.asyncio
+async def test_natural_language_question_is_valid_search_input():
+    target, client = service()
+
+    result = await target.search_knowledge("what can i do to reset password")
+
+    assert result.query == "what can i do to reset password"
+    assert client.search_args is not None
+    assert client.search_args[0] == "what can i do to reset password"
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(("query", "limit"), [(" ", None), ("valid", 0), ("valid", 6)])
 async def test_search_validation(query: str, limit: int | None):
     target, _ = service()
@@ -134,3 +151,18 @@ async def test_article_and_attachment_identifier_validation():
             await target.get_knowledge_article(invalid)
         with pytest.raises(KnowledgeMcpError):
             await target.get_knowledge_attachment("article-1", invalid)
+
+
+@pytest.mark.asyncio
+async def test_article_rejects_natural_language_with_search_guidance():
+    target, client = service()
+
+    for invalid in ("reset password", "password"):
+        with pytest.raises(KnowledgeMcpError) as exc:
+            await target.get_knowledge_article(invalid)
+        assert exc.value.code == ErrorCode.INVALID_REQUEST
+        assert exc.value.message == (
+            "Invalid article identifier. Use search_knowledge first to obtain a valid article_id."
+        )
+
+    assert client.article_calls == []

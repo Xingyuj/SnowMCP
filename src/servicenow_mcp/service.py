@@ -11,8 +11,10 @@ from .models import (
     KnowledgeSearchResponse,
 )
 
-# Accept a short, non-blank ServiceNow identifier while rejecting URL path/query delimiters.
+# Attachment validation retains the existing compatibility-oriented identifier contract.
 _IDENTIFIER = re.compile(r"^[^\s/\\?#]{1,255}$")
+_ARTICLE_SYS_ID = re.compile(r"^[0-9a-fA-F]{32}$")
+_ARTICLE_NUMBER = re.compile(r"^KB[0-9]{1,20}$")
 
 
 class KnowledgeService:
@@ -66,7 +68,7 @@ class KnowledgeService:
         self, article_id: str, authorization: AuthorizationContext | None = None
     ) -> KnowledgeArticle:
         return await self.client.get_article(
-            _validated_identifier(article_id, "article_id"), authorization
+            _validated_article_identifier(article_id), authorization
         )
 
     async def get_knowledge_attachment(
@@ -91,4 +93,14 @@ def _validated_identifier(value: str, name: str) -> str:
     cleaned = value.strip()
     if not _IDENTIFIER.fullmatch(cleaned):
         raise KnowledgeMcpError(ErrorCode.INVALID_REQUEST, f"{name} is invalid")
+    return cleaned
+
+
+def _validated_article_identifier(value: str) -> str:
+    cleaned = value.strip()
+    if not (_ARTICLE_SYS_ID.fullmatch(cleaned) or _ARTICLE_NUMBER.fullmatch(cleaned)):
+        raise KnowledgeMcpError(
+            ErrorCode.INVALID_REQUEST,
+            "Invalid article identifier. Use search_knowledge first to obtain a valid article_id.",
+        )
     return cleaned

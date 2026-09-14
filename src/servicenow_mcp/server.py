@@ -40,12 +40,13 @@ log = logging.getLogger("servicenowautomation_mcp")
 SERVER_NAME = "ServiceNow MCP"
 SERVER_INSTRUCTIONS = (
     "Provides read-only access to authoritative enterprise knowledge stored in ServiceNow. "
-    "Use the available tools to discover Knowledge Base categories, find relevant Knowledge "
-    "Articles, retrieve canonical article content and metadata, and access associated attachments "
-    "when required. "
+    "For a general natural-language knowledge question, use search_knowledge first unless a "
+    "specific article identifier is already known. Use get_kb_article only with an article_id "
+    "returned by search_knowledge or otherwise explicitly supplied. "
     "Treat search results as candidates rather than complete article content. When a caller "
     "provides a specific article identifier, prefer direct retrieval over an unnecessary search. "
-    "Retrieve attachments only when they are relevant to a selected article and explicitly needed. "
+    "Use list_kb_categories only for category discovery or filtering. Retrieve attachments only "
+    "when they are relevant to a selected article and explicitly needed. "
     "Base responses only on records returned by ServiceNow, preserve article identifiers and "
     "relevant source metadata for traceability, and clearly report missing, inaccessible, or "
     "incomplete information instead of inventing content."
@@ -157,9 +158,10 @@ def create_mcp(
     @server.tool(
         title="Search ServiceNow Knowledge",
         description=(
-            "Search accessible ServiceNow Knowledge Articles using a natural-language query or "
-            "keywords. Returns ranked article candidates with identifiers and snippets, not "
-            "canonical article content; retrieve a selected result with get_kb_article."
+            "Primary entry point for general natural-language knowledge questions. Use this tool "
+            "when no specific article_id is already known. Searches accessible ServiceNow "
+            "Knowledge Articles and returns ranked candidates with article_id values and snippets, "
+            "not canonical article content; retrieve a selected result with get_kb_article."
         ),
         annotations=_READ_ONLY_EXTERNAL_TOOL,
         auth=_scope_check(config, SEARCH_KNOWLEDGE_SCOPE),
@@ -209,9 +211,9 @@ def create_mcp(
     @server.tool(
         title="List Knowledge Base Categories",
         description=(
-            "List all accessible ServiceNow Knowledge Base categories. Returns category identifiers, "
-            "labels, parent identifiers, and full hierarchy paths for discovery or search filtering; "
-            "does not return Knowledge Articles."
+            "Use only for category discovery, browsing, or choosing a search filter. Lists accessible "
+            "ServiceNow Knowledge Base categories and their hierarchy; it does not return Knowledge "
+            "Articles and is not the default entry point for a general knowledge question."
         ),
         annotations=_READ_ONLY_EXTERNAL_TOOL,
         auth=_scope_check(config, CATEGORY_READ_SCOPE),
@@ -225,9 +227,9 @@ def create_mcp(
     @server.tool(
         title="Get Knowledge Base Article",
         description=(
-            "Retrieve the canonical content and available publication metadata for one ServiceNow "
-            "Knowledge Article. Accepts the article sys_id or article number; use this after selecting "
-            "a search result or when the caller already knows the article identifier."
+            "Retrieve one specific ServiceNow Knowledge Article and its canonical content. Only call "
+            "this tool when a valid article_id is already known, normally from search_knowledge. "
+            "Do not use this tool for general natural-language search."
         ),
         annotations=_READ_ONLY_EXTERNAL_TOOL,
         auth=_scope_check(config, ARTICLE_READ_SCOPE),
@@ -238,8 +240,12 @@ def create_mcp(
             Field(
                 min_length=1,
                 max_length=255,
-                pattern=_IDENTIFIER_PATTERN,
-                description="ServiceNow Knowledge Article sys_id or article number.",
+                description=(
+                    "Specific ServiceNow article sys_id (32 hexadecimal characters) or KB article "
+                    "number, such as KB0012345. Pass results[].article_id from search_knowledge; "
+                    "do not pass a natural-language question."
+                ),
+                examples=["9b4f5c1adb1230106a3e1b1f299619d2", "KB0012345"],
             ),
         ],
     ) -> KnowledgeArticle:
@@ -251,9 +257,9 @@ def create_mcp(
     @server.tool(
         title="Get Knowledge Base Article Attachment",
         description=(
-            "Retrieve one attachment belonging to a selected ServiceNow Knowledge Article. Requires "
-            "both ServiceNow sys_ids and returns size-limited base64-encoded binary content with file "
-            "metadata; does not parse or interpret the attachment."
+            "Retrieve one specific attachment only when its article_sys_id and attachment_sys_id are "
+            "already known and the attachment content is required. This is not a search or discovery "
+            "tool. Returns size-limited base64 binary data and does not parse or interpret it."
         ),
         annotations=_READ_ONLY_EXTERNAL_TOOL,
         auth=_scope_check(config, ATTACHMENT_READ_SCOPE),
