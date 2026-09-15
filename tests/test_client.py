@@ -51,6 +51,7 @@ async def test_search_maps_ranked_candidates_and_scopes_request():
                             "title": "Remote access",
                             "snippet": "Connection guidance",
                             "score": "0.9",
+                            "link": "?id=kb_article_view&sys_kb_id=a1",
                             "fields": {
                                 "kb_knowledge_base": {
                                     "display_value": "Workplace",
@@ -73,6 +74,7 @@ async def test_search_maps_ranked_candidates_and_scopes_request():
     assert results[0].knowledge_base == "Workplace"
     assert results[0].category == "Remote Access"
     assert results[0].score == 0.9
+    assert results[0].link == "https://instance.example/kb?id=kb_article_view&sys_kb_id=a1"
 
 
 @pytest.mark.asyncio
@@ -131,6 +133,7 @@ async def test_get_article_maps_content_and_status_metadata():
         "published": "2026-01-01",
         "valid_to": "2026-12-31",
         "sys_updated_on": "2026-06-01",
+        "link": "kb_view.do?sys_kb_id=article-1",
         "fields": {
             "kb_knowledge_base": {"display_value": "Workplace", "value": "kb-sys-id"},
             "kb_category": {"display_value": "Access", "value": "category-sys-id"},
@@ -142,6 +145,7 @@ async def test_get_article_maps_content_and_status_metadata():
     assert article.content == "Canonical content"
     assert article.knowledge_base == "Workplace"
     assert article.category == "Access"
+    assert article.link == "https://instance.example/kb_view.do?sys_kb_id=article-1"
     assert article.workflow_state == "draft"
     assert article.valid_to == "2026-12-31"
 

@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Mapping
 from email.message import Message
 from typing import Any
-from urllib.parse import quote
+from urllib.parse import quote, urljoin
 
 import httpx
 
@@ -241,8 +241,7 @@ class ServiceNowKnowledgeApiClient(KnowledgeBackend):
             active=_optional_bool(raw.get("active")),
         )
 
-    @staticmethod
-    def _map_candidate(raw: Mapping[str, Any], rank: int) -> KnowledgeSearchCandidate:
+    def _map_candidate(self, raw: Mapping[str, Any], rank: int) -> KnowledgeSearchCandidate:
         identifier = raw.get("sys_id") or raw.get("id")
         title = raw.get("short_description") or raw.get("title")
         if not identifier or not title:
@@ -261,7 +260,7 @@ class ServiceNowKnowledgeApiClient(KnowledgeBackend):
             snippet=_optional_string(raw.get("snippet") or raw.get("description")),
             score=normalized_score,
             rank=rank,
-            link=_optional_string(raw.get("link") or raw.get("url")),
+            link=self._absolute_link(raw.get("link") or raw.get("url")),
             knowledge_base=_display_value(
                 _article_field(raw, "knowledge_base", "kb_knowledge_base")
             ),
@@ -314,8 +313,16 @@ class ServiceNowKnowledgeApiClient(KnowledgeBackend):
             published=_display_value(_article_field(raw, "published")),
             valid_to=_display_value(_article_field(raw, "valid_to")),
             updated_on=_display_value(_article_field(raw, "updated_on", "sys_updated_on")),
-            link=_optional_string(raw.get("link") or raw.get("url")),
+            link=self._absolute_link(raw.get("link") or raw.get("url")),
         )
+
+    def _absolute_link(self, value: Any) -> str | None:
+        link = _optional_string(value)
+        if not link:
+            return None
+        if link.startswith("?"):
+            link = f"/kb{link}"
+        return urljoin(f"{self.config.servicenow_base_url}/", link)
 
     async def get_attachment(
         self,
