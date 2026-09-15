@@ -22,7 +22,7 @@ class ServiceNowKnowledgeConfig(BaseSettings):
     servicenow_knowledge_base: str | None = None
     servicenow_language: str | None = None
     servicenow_search_fields: str = (
-        "sys_id,number,short_description,description,kb_knowledge_base,score"
+        "sys_id,number,short_description,description,kb_knowledge_base,kb_category,score"
     )
     servicenow_article_fields: str = (
         "sys_id,number,short_description,text,kb_knowledge_base,kb_category,workflow_state,"

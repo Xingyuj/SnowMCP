@@ -26,6 +26,10 @@ class KnowledgeSearchCandidate(BaseModel):
         default=None,
         description="Display value of the article's Knowledge Base, when available.",
     )
+    category: str | None = Field(
+        default=None,
+        description="Display value of the article's Knowledge category, when available.",
+    )
 
     @computed_field(  # type: ignore[prop-decorator]
         description=(

@@ -34,8 +34,11 @@ async def test_search_maps_ranked_candidates_and_scopes_request():
     async def handler(request: httpx.Request) -> httpx.Response:
         assert request.headers["Authorization"] == "Bearer test-token"
         assert request.url.params["query"] == "remote access"
-        assert request.url.params["knowledge_base"] == "workplace"
+        assert request.url.params["kb"] == "workplace"
+        assert "knowledge_base" not in request.url.params
         assert request.url.params["language"] == "en"
+        assert "kb_knowledge_base" in request.url.params["fields"]
+        assert "kb_category" in request.url.params["fields"]
         assert "text" not in request.url.params["fields"]
         return httpx.Response(
             200,
@@ -43,12 +46,21 @@ async def test_search_maps_ranked_candidates_and_scopes_request():
                 "result": {
                     "articles": [
                         {
-                            "sys_id": "a1",
+                            "id": "a1",
                             "number": "KB001",
-                            "short_description": "Remote access",
-                            "description": "Connection guidance",
+                            "title": "Remote access",
+                            "snippet": "Connection guidance",
                             "score": "0.9",
-                            "kb_knowledge_base": {"display_value": "Workplace"},
+                            "fields": {
+                                "kb_knowledge_base": {
+                                    "display_value": "Workplace",
+                                    "value": "kb-sys-id",
+                                },
+                                "kb_category": {
+                                    "display_value": "Remote Access",
+                                    "value": "category-sys-id",
+                                },
+                            },
                         },
                         {"sys_id": "a2", "title": "Troubleshooting", "score": 0.7},
                     ]
@@ -59,6 +71,7 @@ async def test_search_maps_ranked_candidates_and_scopes_request():
     results = await client(handler).search("remote access", 2, "workplace", "en")
     assert [item.rank for item in results] == [1, 2]
     assert results[0].knowledge_base == "Workplace"
+    assert results[0].category == "Remote Access"
     assert results[0].score == 0.9
 
 
@@ -118,11 +131,17 @@ async def test_get_article_maps_content_and_status_metadata():
         "published": "2026-01-01",
         "valid_to": "2026-12-31",
         "sys_updated_on": "2026-06-01",
+        "fields": {
+            "kb_knowledge_base": {"display_value": "Workplace", "value": "kb-sys-id"},
+            "kb_category": {"display_value": "Access", "value": "category-sys-id"},
+        },
     }
     article = await client(
         lambda _: httpx.Response(200, json={"result": {"article": raw}})
     ).get_article("article-1")
     assert article.content == "Canonical content"
+    assert article.knowledge_base == "Workplace"
+    assert article.category == "Access"
     assert article.workflow_state == "draft"
     assert article.valid_to == "2026-12-31"
 

@@ -180,7 +180,7 @@ class ServiceNowKnowledgeApiClient(KnowledgeBackend):
             "fields": ",".join(self.config.search_fields),
         }
         if knowledge_base:
-            params["knowledge_base"] = knowledge_base
+            params["kb"] = knowledge_base
         if language:
             params["language"] = language
         response = await self._request(
@@ -263,8 +263,9 @@ class ServiceNowKnowledgeApiClient(KnowledgeBackend):
             rank=rank,
             link=_optional_string(raw.get("link") or raw.get("url")),
             knowledge_base=_display_value(
-                raw.get("knowledge_base") or raw.get("kb_knowledge_base")
+                _article_field(raw, "knowledge_base", "kb_knowledge_base")
             ),
+            category=_display_value(_article_field(raw, "category", "kb_category")),
         )
 
     async def get_article(
@@ -306,13 +307,13 @@ class ServiceNowKnowledgeApiClient(KnowledgeBackend):
             title=str(title),
             content=str(content)[: self.config.max_article_content_chars],
             knowledge_base=_display_value(
-                raw.get("knowledge_base") or raw.get("kb_knowledge_base")
+                _article_field(raw, "knowledge_base", "kb_knowledge_base")
             ),
-            category=_display_value(raw.get("category") or raw.get("kb_category")),
-            workflow_state=_optional_string(raw.get("workflow_state")),
-            published=_optional_string(raw.get("published")),
-            valid_to=_optional_string(raw.get("valid_to")),
-            updated_on=_optional_string(raw.get("updated_on") or raw.get("sys_updated_on")),
+            category=_display_value(_article_field(raw, "category", "kb_category")),
+            workflow_state=_display_value(_article_field(raw, "workflow_state")),
+            published=_display_value(_article_field(raw, "published")),
+            valid_to=_display_value(_article_field(raw, "valid_to")),
+            updated_on=_display_value(_article_field(raw, "updated_on", "sys_updated_on")),
             link=_optional_string(raw.get("link") or raw.get("url")),
         )
 
@@ -391,6 +392,19 @@ class ServiceNowKnowledgeApiClient(KnowledgeBackend):
 
 def _optional_string(value: Any) -> str | None:
     return None if value is None else str(value)
+
+
+def _article_field(raw: Mapping[str, Any], *names: str) -> Any:
+    """Read a field from either a flat payload or Knowledge API's nested fields object."""
+    for name in names:
+        if raw.get(name) is not None:
+            return raw[name]
+    fields = raw.get("fields")
+    if isinstance(fields, Mapping):
+        for name in names:
+            if fields.get(name) is not None:
+                return fields[name]
+    return None
 
 
 def _display_value(value: Any) -> str | None:
