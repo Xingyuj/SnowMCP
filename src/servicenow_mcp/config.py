@@ -37,6 +37,8 @@ class ServiceNowKnowledgeConfig(BaseSettings):
     max_attachment_bytes: int = Field(default=5_000_000, ge=1)
     transient_retry_attempts: int = Field(default=2, ge=0, le=5)
     retry_backoff_seconds: float = Field(default=0.2, ge=0, le=10)
+    applicationinsights_connection_string: str | None = Field(default=None, repr=False)
+    environment: str = "development"
     log_level: str = "INFO"
     host: str = "0.0.0.0"
     port: int = Field(default=8080, ge=1, le=65535)

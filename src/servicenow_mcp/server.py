@@ -12,6 +12,8 @@ from pydantic import Field
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
+from servicenowautomation_mcp.app_telemetry import set_up_telemetry
+
 from .auth import (
     ApimClaimsTokenVerifier,
     ClientCredentialsAuthenticator,
@@ -114,6 +116,11 @@ class _ServiceRuntime:
 
     @asynccontextmanager
     async def lifespan(self, _: FastMCP) -> AsyncIterator[dict[str, object]]:
+        set_up_telemetry(
+            connection_string=self._config.applicationinsights_connection_string,
+            service_name="servicenowautomation-mcp",
+            environment=self._config.environment,
+        )
         self._ready = True
         try:
             yield self._state

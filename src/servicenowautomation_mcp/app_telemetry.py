@@ -1,43 +1,49 @@
-"""Application Insights telemetry setup for the MCP service."""
+"""Azure Application Insights telemetry setup for the MCP service."""
 
 import logging
-
-from config import settings
+from threading import Lock
 
 logger = logging.getLogger(__name__)
 
 _PLACEHOLDER_CONNECTION_STRING = "---your connection string---"
+_configuration_lock = Lock()
+_telemetry_configured = False
 
 
-def set_up_telemetry() -> None:
-    """Configure Azure Monitor telemetry when a valid connection string is provided."""
-    connection_string = settings.applicationinsights_connection_string
+def set_up_telemetry(
+    *,
+    connection_string: str | None,
+    service_name: str,
+    environment: str,
+) -> bool:
+    """Configure Azure Monitor once when an Application Insights connection is available."""
+    global _telemetry_configured
+
     if not connection_string:
         logger.info("Application Insights telemetry disabled: missing connection string")
-        return
-
+        return False
     if connection_string.strip() == _PLACEHOLDER_CONNECTION_STRING:
         logger.warning(
             "Application Insights telemetry disabled: placeholder connection string configured"
         )
-        return
+        return False
 
-    try:
-        from azure.monitor.opentelemetry import configure_azure_monitor
-    except ModuleNotFoundError:
-        logger.warning(
-            "Application Insights telemetry disabled: azure-monitor-opentelemetry package is not installed"  # noqa: E501
-        )
-        return
+    with _configuration_lock:
+        if _telemetry_configured:
+            return True
+        try:
+            from azure.monitor.opentelemetry import configure_azure_monitor
 
-    try:
-        configure_azure_monitor(connection_string=connection_string)
-    except Exception:
-        logger.exception("Failed to configure Application Insights telemetry")
-        return
+            configure_azure_monitor(connection_string=connection_string)
+        except Exception:
+            logger.exception("Failed to configure Application Insights telemetry")
+            return False
+
+        _telemetry_configured = True
 
     logger.info(
         "Application Insights telemetry enabled for service=%s environment=%s",
-        settings.mcp_name,
-        settings.environment,
+        service_name,
+        environment,
     )
+    return True
