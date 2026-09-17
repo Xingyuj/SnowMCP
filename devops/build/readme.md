@@ -7,7 +7,7 @@ This directory contains the Azure DevOps build pipeline configuration for the Se
 - `Bupa.ServiceNowAutomation-mcp.yaml`
   - Main CI/CD pipeline, triggered by commits to `develop`. It requires the SonarQube quality gate to pass before building and pushing the application image to `ACR2:TEST`. Deployment stages consume that validated image; Checkmarx is currently disabled.
 - `Bupa.ServiceNowAutomation-pr-policy.yaml`
-  - PR validation pipeline for an Azure Repos build-validation policy on `develop`. It runs the SonarQube quality gate first, then verifies the Docker build without pushing an image. Attach the `ServiceNowAutomation MCP PR` pipeline to `develop` as a branch policy because Azure Repos does not use YAML `pr` triggers.
+  - PR validation pipeline for an Azure Repos build-validation policy on `develop`. It runs the SonarQube quality gate first, then verifies the Docker build without pushing an image. Attach the `ServiceNow Automation MCP PR` pipeline to `develop` as a branch policy because Azure Repos does not use YAML `pr` triggers.
 
 ## Pipeline Templates (`templates/`)
 

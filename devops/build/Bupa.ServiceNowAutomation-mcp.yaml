@@ -95,7 +95,7 @@ stages:
           value: "fee9c112-179f-46e3-ab98-f8d58602cf19"
       jobs:
         - deployment: DEV_ServiceNowAutomation_MCP_Deploy
-          displayName: DEV ServiceNowAutomation MCP Deploy
+          displayName: DEV ServiceNow Automation MCP Deploy
           environment: ServiceNowAutomation_dev
           strategy:
             runOnce:
@@ -148,7 +148,7 @@ stages:
           value: "fee9c112-179f-46e3-ab98-f8d58602cf19"
       jobs:
         - deployment: TEST_ServiceNowAutomation_MCP_Deploy
-          displayName: TEST ServiceNowAutomation MCP Deploy
+          displayName: TEST ServiceNow Automation MCP Deploy
           environment: ServiceNowAutomation_test
           strategy:
             runOnce:

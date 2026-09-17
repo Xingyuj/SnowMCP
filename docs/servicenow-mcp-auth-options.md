@@ -1,4 +1,4 @@
-# ServiceNow MCP Authentication Options
+# ServiceNow Automation MCP Authentication Options
 
 This document compares authentication patterns for:
 

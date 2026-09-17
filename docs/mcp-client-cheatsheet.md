@@ -141,7 +141,7 @@ curl --ssl-revoke-best-effort -sS -X POST \
   --data-urlencode "scope=${SERVICENOW_OAUTH_SCOPE}"
 ```
 
-This guide explains how to use [`scripts/mcp_client.py`](../scripts/mcp_client.py) to call the local ServiceNow MCP server.
+This guide explains how to use [`scripts/mcp_client.py`](../scripts/mcp_client.py) to call the local ServiceNow Automation MCP server.
 
 The client communicates over HTTP/JSON-RPC and does not require the `fastmcp` CLI.
 
@@ -538,7 +538,7 @@ attachment is trusted and required before increasing the value, then restart the
 Test the MCP tools without calling a real ServiceNow instance:
 
 ```bash
-.venv/bin/python -m pytest tests/test_tools.py -v
+.venv/bin/python -m pytest tests/tools/test_knowledge.py -v
 ```
 
 Run the complete test suite:

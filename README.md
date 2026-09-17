@@ -1,6 +1,6 @@
 <div align="center">
 
-# ServiceNowAutomation MCP Server
+# ServiceNow Automation MCP
 
 ![Python 3.12+](https://img.shields.io/badge/Python-3.12%2B-3776AB?logo=python&logoColor=white)
 ![FastMCP 3.x](https://img.shields.io/badge/FastMCP-3.x-009688)
