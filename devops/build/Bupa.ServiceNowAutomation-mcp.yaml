@@ -45,19 +45,6 @@ variables:
     value: "$(expName)/$(projectName)"
 
 stages:
-  - stage: Build
-    displayName: Build MCP Image
-    jobs:
-      - job: BuildMcp
-        displayName: Build servicenowautomation-mcp image
-        pool: 'NextGen Containers'
-        steps:
-          - template: templates/buildMcpImage.yaml
-            parameters:
-              repository: $(repository)
-              projectName: $(projectName)
-              pushToProdAcr: ${{ parameters.pushToProdAcr }}
-
   - stage: SecurityScan
     displayName: 'Security Scans'
     jobs:
@@ -70,6 +57,22 @@ stages:
           checkmarxProjectNamePostfix: 'servicenowautomation'
           runCheckmarx: false
 
+  - stage: Build
+    displayName: Build MCP Image
+    dependsOn: SecurityScan
+    condition: succeeded()
+    jobs:
+      - job: BuildMcp
+        displayName: Build servicenowautomation-mcp image
+        pool: 'NextGen Containers'
+        steps:
+          - template: templates/buildMcpImage.yaml
+            parameters:
+              repository: $(repository)
+              projectName: $(projectName)
+              pushToProdAcr: ${{ parameters.pushToProdAcr }}
+              pushImage: true
+
   - ${{ if or(eq(parameters.deploy, true), eq(variables['Build.SourceBranch'], 'refs/heads/develop')) }}:
     - stage: DEV_Deploy
       displayName: DEV Deploy MCP Server
@@ -79,7 +82,6 @@ stages:
         eq('${{ parameters.env }}', 'dev'))
       dependsOn:
         - Build
-        - SecurityScan
       variables:
         - name: "CLUSTER_NAME"
           value: "nonprod4aks"
@@ -129,7 +131,6 @@ stages:
         eq('${{ parameters.env }}', 'test'))
       dependsOn:
         - Build
-        - SecurityScan
       variables:
         - name: "CLUSTER_NAME"
           value: "nonprod4aks"

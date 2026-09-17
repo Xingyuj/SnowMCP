@@ -16,22 +16,8 @@ variables:
     value: "$(expName)/$(projectName)"
 
 stages:
-  - stage: Build
-    displayName: Build MCP Image
-    jobs:
-      - job: BuildMcp
-        displayName: Build servicenowautomation-mcp image
-        pool: 'NextGen Containers'
-        steps:
-          - template: templates/buildMcpImage.yaml
-            parameters:
-              repository: $(repository)
-              projectName: $(projectName)
-              pushToProdAcr: false
-
   - stage: SecurityScan
     displayName: 'Security Scans'
-    dependsOn: Build
     jobs:
       - template: templates/security_scans.yaml
         parameters:
@@ -41,3 +27,19 @@ stages:
           sonarQubeVariableGroup: 'SonarQubeVariables'
           checkmarxProjectNamePostfix: 'servicenowautomation'
           runCheckmarx: false
+
+  - stage: Build
+    displayName: Validate MCP Image Build
+    dependsOn: SecurityScan
+    condition: succeeded()
+    jobs:
+      - job: BuildMcp
+        displayName: Validate servicenowautomation-mcp image build
+        pool: 'NextGen Containers'
+        steps:
+          - template: templates/buildMcpImage.yaml
+            parameters:
+              repository: $(repository)
+              projectName: $(projectName)
+              pushToProdAcr: false
+              pushImage: false
