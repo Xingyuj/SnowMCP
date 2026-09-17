@@ -5,7 +5,7 @@
       "name": "MCP Server",
       "type": "debugpy",
       "request": "launch",
-      "module": "servicenow_mcp.server",
+      "module": "servicenowautomation_mcp.server",
       "cwd": "${workspaceFolder}",
       "envFile": "${workspaceFolder}/.env",
       "console": "integratedTerminal",

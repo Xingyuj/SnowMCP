@@ -2,10 +2,10 @@ import logging
 
 from fastmcp import Client
 
-import servicenow_mcp.server as server_module
-from servicenow_mcp.config import ServiceNowKnowledgeConfig
-from servicenow_mcp.server import create_mcp
+import servicenowautomation_mcp.server as server_module
 from servicenowautomation_mcp import app_telemetry
+from servicenowautomation_mcp.config import ServiceNowKnowledgeConfig
+from servicenowautomation_mcp.server import create_mcp
 
 
 def test_telemetry_is_disabled_without_connection_string(monkeypatch, caplog):

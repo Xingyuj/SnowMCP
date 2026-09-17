@@ -4,9 +4,9 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "servicenowautomation-mcp"
-version = "0.2.0"
+version = "0.9.0"
 description = "ServiceNowAutomation FastMCP tools for ServiceNow Knowledge retrieval"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 dependencies = [
   "azure-monitor-opentelemetry>=1.8.7,<2",
   "fastmcp>=3,<4",
@@ -28,7 +28,7 @@ dev = [
 ]
 
 [project.scripts]
-servicenowautomation-mcp = "servicenow_mcp.server:main"
+servicenowautomation-mcp = "servicenowautomation_mcp.server:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -39,9 +39,9 @@ asyncio_mode = "auto"
 
 [tool.ruff]
 line-length = 100
-target-version = "py311"
+target-version = "py312"
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.12"
 strict = true
-packages = ["servicenow_mcp"]
+packages = ["servicenowautomation_mcp"]

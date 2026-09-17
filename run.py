@@ -11,18 +11,19 @@ from pathlib import Path
 # Add src directory to Python path
 src_path = Path(__file__).parent / "src"
 sys.path.insert(0, str(src_path))
-os.environ['PYTHONPATH'] = str(src_path)
+os.environ["PYTHONPATH"] = str(src_path)
+
 
 # Detect which framework to run based on available modules
 def detect_framework():
     """
     Detect which framework module is available in src/
-   
+
     Returns:
         str: 'fastapi', 'fastmcp', or 'azure_functions'
     """
     src = Path(__file__).parent / "src"
-   
+
     # Check for available application directories
     if (src / "servicenowautomation_api").exists():
         return "fastapi"
@@ -47,18 +48,13 @@ if __name__ == "__main__":
             host="0.0.0.0",
             port=8000,
             reload=False,  # Disable reload to avoid path issues
-            log_level="info"
+            log_level="info",
         )
     elif framework == "fastmcp":
         # Run FastMCP application
-        from servicenowautomation_mcp.config import settings
-        from servicenowautomation_mcp.main import mcp
+        from servicenowautomation_mcp.server import main
 
-        mcp.run(
-            transport=settings.mcp_transport,
-            host=settings.mcp_host,
-            port=settings.mcp_port,
-        )
+        main()
     elif framework == "azure_functions":
         # Run Azure Functions
         print("Azure Functions runtime detected.")

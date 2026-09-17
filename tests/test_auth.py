@@ -4,14 +4,14 @@ import json
 import httpx
 import pytest
 
-from servicenow_mcp.auth import (
+from servicenowautomation_mcp.auth import (
     ApimClaimsTokenVerifier,
     AuthorizationContext,
     ClientCredentialsAuthenticator,
 )
-from servicenow_mcp.config import ServiceNowKnowledgeConfig
-from servicenow_mcp.errors import ErrorCode, KnowledgeMcpError
-from servicenow_mcp.server import build_apim_auth
+from servicenowautomation_mcp.config import ServiceNowKnowledgeConfig
+from servicenowautomation_mcp.errors import ErrorCode, KnowledgeMcpError
+from servicenowautomation_mcp.server import build_apim_auth
 
 
 @pytest.mark.asyncio

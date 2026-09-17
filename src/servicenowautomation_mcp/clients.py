@@ -377,9 +377,9 @@ class ServiceNowKnowledgeApiClient(KnowledgeBackend):
                 article_id=article_id,
                 attachment_id=attachment_id,
                 filename=_filename(response.headers.get("Content-Disposition")),
-                content_type=response.headers.get(
-                    "Content-Type", "application/octet-stream"
-                ).split(";", 1)[0],
+                content_type=response.headers.get("Content-Type", "application/octet-stream").split(
+                    ";", 1
+                )[0],
                 size_bytes=len(data),
                 content_base64=base64.b64encode(data).decode("ascii"),
             )

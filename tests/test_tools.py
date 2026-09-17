@@ -5,24 +5,24 @@ from concurrent.futures import ThreadPoolExecutor
 from fastmcp import Client
 from fastmcp.server.auth import AccessToken, AuthContext, run_auth_checks
 
-import servicenow_mcp.server as server_module
-from servicenow_mcp.auth import AuthorizationContext
-from servicenow_mcp.clients import KnowledgeBackend
-from servicenow_mcp.config import ServiceNowKnowledgeConfig
-from servicenow_mcp.models import (
+import servicenowautomation_mcp.server as server_module
+from servicenowautomation_mcp.auth import AuthorizationContext
+from servicenowautomation_mcp.clients import KnowledgeBackend
+from servicenowautomation_mcp.config import ServiceNowKnowledgeConfig
+from servicenowautomation_mcp.models import (
     KnowledgeArticle,
     KnowledgeAttachment,
     KnowledgeCategory,
     KnowledgeSearchCandidate,
 )
-from servicenow_mcp.scopes import (
+from servicenowautomation_mcp.scopes import (
     ARTICLE_READ_SCOPE,
     ATTACHMENT_READ_SCOPE,
     CATEGORY_READ_SCOPE,
     SEARCH_KNOWLEDGE_SCOPE,
 )
-from servicenow_mcp.server import SERVER_INSTRUCTIONS, SERVER_NAME, create_mcp
-from servicenow_mcp.service import KnowledgeService
+from servicenowautomation_mcp.server import SERVER_INSTRUCTIONS, SERVER_NAME, create_mcp
+from servicenowautomation_mcp.service import KnowledgeService
 
 TEST_SERVICENOW_BASE_URL = "https://instance.example"
 TEST_ARTICLE_SYS_ID = "9b4f5c1adb1230106a3e1b1f299619d2"

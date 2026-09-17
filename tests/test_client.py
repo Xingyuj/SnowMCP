@@ -3,10 +3,10 @@ import base64
 import httpx
 import pytest
 
-from servicenow_mcp.auth import IntegrationTokenAuthenticator
-from servicenow_mcp.clients import ServiceNowKnowledgeApiClient
-from servicenow_mcp.config import ServiceNowKnowledgeConfig
-from servicenow_mcp.errors import ErrorCode, KnowledgeMcpError
+from servicenowautomation_mcp.auth import IntegrationTokenAuthenticator
+from servicenowautomation_mcp.clients import ServiceNowKnowledgeApiClient
+from servicenowautomation_mcp.config import ServiceNowKnowledgeConfig
+from servicenowautomation_mcp.errors import ErrorCode, KnowledgeMcpError
 
 
 def config(**overrides: object) -> ServiceNowKnowledgeConfig:
@@ -253,9 +253,7 @@ async def test_search_status_mapping(status: int, code: ErrorCode):
 )
 async def test_attachment_status_mapping(status: int, code: ErrorCode):
     with pytest.raises(KnowledgeMcpError) as exc:
-        await client(lambda _: httpx.Response(status)).get_attachment(
-            "article-1", "attachment-1"
-        )
+        await client(lambda _: httpx.Response(status)).get_attachment("article-1", "attachment-1")
     assert exc.value.code == code
 
 

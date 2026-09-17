@@ -2,17 +2,17 @@ from typing import Any
 
 import pytest
 
-from servicenow_mcp.auth import AuthorizationContext
-from servicenow_mcp.clients import KnowledgeBackend
-from servicenow_mcp.config import ServiceNowKnowledgeConfig
-from servicenow_mcp.errors import ErrorCode, KnowledgeMcpError
-from servicenow_mcp.models import (
+from servicenowautomation_mcp.auth import AuthorizationContext
+from servicenowautomation_mcp.clients import KnowledgeBackend
+from servicenowautomation_mcp.config import ServiceNowKnowledgeConfig
+from servicenowautomation_mcp.errors import ErrorCode, KnowledgeMcpError
+from servicenowautomation_mcp.models import (
     KnowledgeArticle,
     KnowledgeAttachment,
     KnowledgeCategory,
     KnowledgeSearchCandidate,
 )
-from servicenow_mcp.service import KnowledgeService
+from servicenowautomation_mcp.service import KnowledgeService
 
 
 class RecordingClient(KnowledgeBackend):
