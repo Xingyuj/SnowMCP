@@ -5,15 +5,15 @@ from typing import Protocol
 
 from fastmcp import FastMCP
 
-from .app_telemetry import set_up_telemetry
-from .auth import (
+from .config import ServiceNowKnowledgeConfig
+from .knowledge.client import ServiceNowKnowledgeApiClient
+from .knowledge.service import KnowledgeService
+from .security.servicenow_auth import (
     ClientCredentialsAuthenticator,
     IntegrationTokenAuthenticator,
     ServiceNowAuthenticator,
 )
-from .clients import ServiceNowKnowledgeApiClient
-from .config import ServiceNowKnowledgeConfig
-from .service import KnowledgeService
+from .telemetry import set_up_telemetry
 
 
 class TelemetrySetup(Protocol):

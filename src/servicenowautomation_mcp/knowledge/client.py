@@ -8,16 +8,16 @@ from urllib.parse import quote, urljoin
 
 import httpx
 
-from .auth import AuthorizationContext, ServiceNowAuthenticator
-from .config import ServiceNowKnowledgeConfig
-from .errors import ErrorCode, KnowledgeMcpError
+from ..config import ServiceNowKnowledgeConfig
+from ..errors import ErrorCode, KnowledgeMcpError
+from ..security.servicenow_auth import AuthorizationContext, ServiceNowAuthenticator
+from ..tls import system_ssl_context
 from .models import (
     KnowledgeArticle,
     KnowledgeAttachment,
     KnowledgeCategory,
     KnowledgeSearchCandidate,
 )
-from .tls import system_ssl_context
 
 SERVICE_NOW_UNAVAILABLE = "ServiceNow is unavailable"
 SERVICE_NOW_TIMEOUT = "ServiceNow request timed out"

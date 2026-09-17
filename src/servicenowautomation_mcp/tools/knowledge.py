@@ -6,16 +6,16 @@ from fastmcp.server.auth import AuthCheck, require_scopes
 from mcp.types import ToolAnnotations
 from pydantic import Field
 
-from .config import ServiceNowKnowledgeConfig
-from .errors import KnowledgeMcpError
-from .models import (
+from ..config import ServiceNowKnowledgeConfig
+from ..errors import KnowledgeMcpError
+from ..knowledge.models import (
     KnowledgeArticle,
     KnowledgeAttachment,
     KnowledgeCategoriesResponse,
     KnowledgeSearchResponse,
 )
-from .runtime import ServiceRuntime
-from .scopes import (
+from ..runtime import ServiceRuntime
+from ..scopes import (
     ARTICLE_READ_SCOPE,
     ATTACHMENT_READ_SCOPE,
     CATEGORY_READ_SCOPE,

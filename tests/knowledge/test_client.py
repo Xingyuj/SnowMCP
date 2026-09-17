@@ -3,10 +3,10 @@ import base64
 import httpx
 import pytest
 
-from servicenowautomation_mcp.auth import IntegrationTokenAuthenticator
-from servicenowautomation_mcp.clients import ServiceNowKnowledgeApiClient
 from servicenowautomation_mcp.config import ServiceNowKnowledgeConfig
 from servicenowautomation_mcp.errors import ErrorCode, KnowledgeMcpError
+from servicenowautomation_mcp.knowledge.client import ServiceNowKnowledgeApiClient
+from servicenowautomation_mcp.security.servicenow_auth import IntegrationTokenAuthenticator
 
 
 def config(**overrides: object) -> ServiceNowKnowledgeConfig:
@@ -16,7 +16,7 @@ def config(**overrides: object) -> ServiceNowKnowledgeConfig:
         "retry_backoff_seconds": 0,
         **overrides,
     }
-    return ServiceNowKnowledgeConfig(**values)
+    return ServiceNowKnowledgeConfig(_env_file=None, **values)
 
 
 def client(handler, **overrides: object) -> ServiceNowKnowledgeApiClient:

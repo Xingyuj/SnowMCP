@@ -69,7 +69,7 @@
       "type": "debugpy",
       "request": "launch",
       "module": "pytest",
-      "args": ["tests/test_tools.py", "-v", "-s"],
+      "args": ["tests/tools/test_knowledge.py", "-v", "-s"],
       "cwd": "${workspaceFolder}",
       "console": "integratedTerminal",
       "justMyCode": true

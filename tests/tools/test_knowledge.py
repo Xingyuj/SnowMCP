@@ -6,23 +6,23 @@ from fastmcp import Client
 from fastmcp.server.auth import AccessToken, AuthContext, run_auth_checks
 
 import servicenowautomation_mcp.server as server_module
-from servicenowautomation_mcp.auth import AuthorizationContext
-from servicenowautomation_mcp.clients import KnowledgeBackend
 from servicenowautomation_mcp.config import ServiceNowKnowledgeConfig
-from servicenowautomation_mcp.models import (
+from servicenowautomation_mcp.knowledge.client import KnowledgeBackend
+from servicenowautomation_mcp.knowledge.models import (
     KnowledgeArticle,
     KnowledgeAttachment,
     KnowledgeCategory,
     KnowledgeSearchCandidate,
 )
+from servicenowautomation_mcp.knowledge.service import KnowledgeService
 from servicenowautomation_mcp.scopes import (
     ARTICLE_READ_SCOPE,
     ATTACHMENT_READ_SCOPE,
     CATEGORY_READ_SCOPE,
     SEARCH_KNOWLEDGE_SCOPE,
 )
+from servicenowautomation_mcp.security.servicenow_auth import AuthorizationContext
 from servicenowautomation_mcp.server import SERVER_INSTRUCTIONS, SERVER_NAME, create_mcp
-from servicenowautomation_mcp.service import KnowledgeService
 
 TEST_SERVICENOW_BASE_URL = "https://instance.example"
 TEST_ARTICLE_SYS_ID = "9b4f5c1adb1230106a3e1b1f299619d2"
@@ -73,7 +73,10 @@ class ToolClient(KnowledgeBackend):
 
 
 def server_client(config: ServiceNowKnowledgeConfig | None = None) -> Client:
-    config = config or ServiceNowKnowledgeConfig(servicenow_base_url=TEST_SERVICENOW_BASE_URL)
+    config = config or ServiceNowKnowledgeConfig(
+        _env_file=None,
+        servicenow_base_url=TEST_SERVICENOW_BASE_URL,
+    )
     return Client(create_mcp(KnowledgeService(ToolClient(), config)))
 
 
@@ -219,6 +222,7 @@ async def test_get_article_rejects_natural_language_with_actionable_tool_error()
 
 async def test_every_tool_requires_its_own_scope_when_apim_auth_is_enabled():
     config = ServiceNowKnowledgeConfig(
+        _env_file=None,
         apim_auth_enabled=True,
     )
     server = create_mcp(
@@ -248,7 +252,10 @@ async def test_every_tool_requires_its_own_scope_when_apim_auth_is_enabled():
 
 
 def test_concurrent_first_calls_build_one_service(monkeypatch):
-    config = ServiceNowKnowledgeConfig(servicenow_base_url=TEST_SERVICENOW_BASE_URL)
+    config = ServiceNowKnowledgeConfig(
+        _env_file=None,
+        servicenow_base_url=TEST_SERVICENOW_BASE_URL,
+    )
     service = KnowledgeService(ToolClient(), config)
     build_count = 0
 

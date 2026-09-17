@@ -4,13 +4,13 @@ from collections.abc import Callable
 from fastmcp import FastMCP
 from fastmcp.server.auth import TokenVerifier
 
-from .app_telemetry import set_up_telemetry
-from .auth import ApimClaimsTokenVerifier
 from .config import ServiceNowKnowledgeConfig, get_config
 from .health_routes import register_health_routes
-from .knowledge_tools import register_knowledge_tools
+from .knowledge.service import KnowledgeService
 from .runtime import ServiceRuntime, build_service
-from .service import KnowledgeService
+from .security.apim import ApimClaimsTokenVerifier
+from .telemetry import set_up_telemetry
+from .tools import register_knowledge_tools
 
 __all__ = [
     "SERVER_INSTRUCTIONS",

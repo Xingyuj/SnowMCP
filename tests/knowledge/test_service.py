@@ -2,17 +2,17 @@ from typing import Any
 
 import pytest
 
-from servicenowautomation_mcp.auth import AuthorizationContext
-from servicenowautomation_mcp.clients import KnowledgeBackend
 from servicenowautomation_mcp.config import ServiceNowKnowledgeConfig
 from servicenowautomation_mcp.errors import ErrorCode, KnowledgeMcpError
-from servicenowautomation_mcp.models import (
+from servicenowautomation_mcp.knowledge.client import KnowledgeBackend
+from servicenowautomation_mcp.knowledge.models import (
     KnowledgeArticle,
     KnowledgeAttachment,
     KnowledgeCategory,
     KnowledgeSearchCandidate,
 )
-from servicenowautomation_mcp.service import KnowledgeService
+from servicenowautomation_mcp.knowledge.service import KnowledgeService
+from servicenowautomation_mcp.security.servicenow_auth import AuthorizationContext
 
 
 class RecordingClient(KnowledgeBackend):
@@ -76,6 +76,7 @@ class RecordingClient(KnowledgeBackend):
 def service() -> tuple[KnowledgeService, RecordingClient]:
     client = RecordingClient()
     config = ServiceNowKnowledgeConfig(
+        _env_file=None,
         servicenow_base_url="https://instance.example",
         default_search_limit=3,
         max_search_limit=5,

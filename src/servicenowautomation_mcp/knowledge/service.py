@@ -1,9 +1,9 @@
 import re
 
-from .auth import AuthorizationContext
-from .clients import KnowledgeBackend
-from .config import ServiceNowKnowledgeConfig
-from .errors import ErrorCode, KnowledgeMcpError
+from ..config import ServiceNowKnowledgeConfig
+from ..errors import ErrorCode, KnowledgeMcpError
+from ..security.servicenow_auth import AuthorizationContext
+from .client import KnowledgeBackend
 from .models import (
     KnowledgeArticle,
     KnowledgeAttachment,

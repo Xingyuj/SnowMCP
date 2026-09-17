@@ -4,13 +4,13 @@ import json
 import httpx
 import pytest
 
-from servicenowautomation_mcp.auth import (
+from servicenowautomation_mcp.config import ServiceNowKnowledgeConfig
+from servicenowautomation_mcp.errors import ErrorCode, KnowledgeMcpError
+from servicenowautomation_mcp.security import (
     ApimClaimsTokenVerifier,
     AuthorizationContext,
     ClientCredentialsAuthenticator,
 )
-from servicenowautomation_mcp.config import ServiceNowKnowledgeConfig
-from servicenowautomation_mcp.errors import ErrorCode, KnowledgeMcpError
 from servicenowautomation_mcp.server import build_apim_auth
 
 
@@ -66,7 +66,7 @@ async def test_delegated_token_does_not_request_client_credentials_token():
 
 
 def test_apim_auth_builds_claims_adapter_without_jwt_key_configuration():
-    config = ServiceNowKnowledgeConfig(apim_auth_enabled=True)
+    config = ServiceNowKnowledgeConfig(_env_file=None, apim_auth_enabled=True)
     assert isinstance(build_apim_auth(config), ApimClaimsTokenVerifier)
 
 
