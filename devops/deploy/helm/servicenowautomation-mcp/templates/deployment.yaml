@@ -51,7 +51,7 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           args:
             - uvicorn
-            - servicenow_mcp.server:mcp_app
+            - servicenowautomation_mcp.server:mcp_app
             - --host
             - {{ .Values.mcp.args.host | quote }}
             - --port

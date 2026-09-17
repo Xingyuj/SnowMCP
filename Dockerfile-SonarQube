@@ -55,7 +55,7 @@ USER ServiceNowAutomation-ai-factory
 WORKDIR ${PROJECT_DIR}
 RUN uv sync --frozen --no-cache --extra dev \
     && PYTHONPATH="${PROJECT_DIR}/src" uv run pytest \
-        --cov=src/servicenow_mcp \
+        --cov=src/servicenowautomation_mcp \
         "--cov-report=xml:${TEST_DIR}/servicenow-mcp/coverage.xml" \
         --cov-report=term \
         "--junitxml=${TEST_DIR}/servicenow-mcp/test-results.xml" \
@@ -83,6 +83,6 @@ RUN sonar-scanner \
     -D${var_pr_dest} \
     -Dsonar.python.coverage.reportPaths="/src/testresults/servicenow-mcp/coverage.xml" \
     -Dsonar.python.version=3.12 \
-    -Dsonar.exclusions=src/servicenowautomation_mcp/**,**/scripts/**,**/tests/**,**/pdb.yaml,**/devops/**,**/*.spec.ts,**/*.spec.tsx \
+    -Dsonar.exclusions=**/scripts/**,**/tests/**,**/pdb.yaml,**/devops/**,**/*.spec.ts,**/*.spec.tsx \
     -Dsonar.test.exclusions=**/scripts/**,**/tests/**,**/devops/**,**/*.spec.ts,**/*.spec.tsx \
     -Dsonar.qualitygate.wait=true

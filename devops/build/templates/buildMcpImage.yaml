@@ -11,18 +11,18 @@ steps:
     fetchDepth: 0
     persistCredentials: true
     clean: true
-      
+
   - script: |
       curl -LsSf https://astral.sh/uv/0.12.5/install.sh | sh
       echo "##vso[task.prependpath]$HOME/.local/bin"
     displayName: 'Install uv'
-  
+
   - script: |
       uv sync --frozen --extra dev
     displayName: 'Install dependencies'
 
   - script: |
-      uv run ruff check src/servicenow_mcp tests
+      uv run ruff check src/servicenowautomation_mcp tests
     displayName: 'Linting'
 
   - script: |
