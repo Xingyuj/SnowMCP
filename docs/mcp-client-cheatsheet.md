@@ -229,7 +229,7 @@ Run the server in the first terminal:
 
 ```bash
 cd /Users/xingyuji/workspace/BupaMCP/SnowMCP
-.venv/bin/python -m servicenow_mcp.server
+.venv/bin/python -m servicenowautomation_mcp.server
 ```
 
 The default MCP endpoint is:
@@ -416,7 +416,7 @@ Start the server in the first terminal:
 
 ```bash
 cd /Users/xingyuji/workspace/BupaMCP/SnowMCP
-.venv/bin/python -m servicenow_mcp.server
+.venv/bin/python -m servicenowautomation_mcp.server
 ```
 
 List tools and search from the second terminal:
@@ -459,7 +459,7 @@ Error: All connection attempts failed
 The MCP server is not running, or the configured port is incorrect. Start the server:
 
 ```bash
-.venv/bin/python -m servicenow_mcp.server
+.venv/bin/python -m servicenowautomation_mcp.server
 ```
 
 ### Address already in use
@@ -508,7 +508,7 @@ then restart the MCP server:
 
 ```bash
 uv sync --frozen --extra dev
-uv run python -m servicenow_mcp.server
+uv run python -m servicenowautomation_mcp.server
 ```
 
 If verification still fails, confirm with the corporate security or network team that the TLS

@@ -26,7 +26,7 @@ intentionally does not repeat cryptographic token validation.
 | `get_kb_article_attachment` | `knowledge.attachment.read` |
 
 These scopes are part of the MCP endpoint's authorization contract and are fixed in
-`src/servicenow_mcp/scopes.py`. Changing the contract requires a reviewed code change rather than
+`src/servicenowautomation_mcp/scopes.py`. Changing the contract requires a reviewed code change rather than
 an environment override.
 
 The server reads subjects from `oid` and then `sub` by default. It combines scopes from `scp`,

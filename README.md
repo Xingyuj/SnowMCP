@@ -43,7 +43,7 @@ cd SnowMCP
 uv sync --frozen
 ```
 
-Python 3.11 or newer and the `uv` package manager are required.
+Python 3.12 or newer and the `uv` package manager are required.
 
 ### 2. Configure ServiceNow
 
@@ -78,6 +78,18 @@ servicenowautomation-mcp
 
 The MCP endpoint is available at `http://127.0.0.1:8080/mcp`.
 
+### Health checks
+
+The HTTP server exposes Kubernetes-compatible health endpoints:
+
+| Endpoint | Purpose | Successful response |
+| --- | --- | --- |
+| `GET /mcp/live` | Confirms that the process can serve HTTP requests | `{"status":"healthy","service":"servicenowautomation-mcp"}` |
+| `GET /mcp/health` | Confirms that the FastMCP lifespan has started | `{"status":"ready","service":"servicenowautomation-mcp"}` |
+| `GET /mcp/ready` | Alias for the readiness check | Same as `/mcp/health` |
+
+The readiness endpoints return HTTP `503` until the server lifespan is ready.
+
 Everything needed to build, scan, deploy, and provision infrastructure for this service lives under `devops/`:
 
 | Path | What it's for |
@@ -92,16 +104,6 @@ Everything needed to build, scan, deploy, and provision infrastructure for this 
 | `Dockerfile-SonarQube` *(repo root)* | Build variant used only by the CI SonarQube scan stage. |
 | `.dockerignore.sonar` *(repo root)* | SonarQube Docker build exclusions; intentionally retains Git metadata for branch analysis. |
 | `.gitignore` *(repo root)* | Standard Python ignores. |
-
-### Docker Build
-
-With the HTTP server running in another terminal:
-
-```bash
-python scripts/mcp_client.py list
-python scripts/mcp_client.py categories
-python scripts/mcp_client.py search "remote access" --limit 5
-```
 
 ## Configure an MCP client
 
@@ -142,6 +144,7 @@ the Entra ID access token to APIM.
 | `search_knowledge` | Search using a natural-language query or keywords; returns ordered candidates and snippets | `knowledge.search` |
 | `list_kb_categories` | List every accessible category, including parent IDs and full hierarchy paths | `knowledge.category.read` |
 | `get_kb_article` | Retrieve canonical article content and publication/validity metadata | `knowledge.article.read` |
+| `get_kb_article_attachment` | Retrieve one size-limited attachment when its article and attachment IDs are already known | `knowledge.attachment.read` |
 
 Typical retrieval flow:
 
@@ -178,7 +181,7 @@ flowchart TB
         Transport[Streamable HTTP transport]
         Claims["Extract APIM-validated claims<br/>no JWT signature validation"]
         Scopes[Per-tool scope checks]
-        Tools["Tool handlers<br/>search_knowledge<br/>list_kb_categories<br/>get_kb_article"]
+        Tools["Tool handlers<br/>search_knowledge<br/>list_kb_categories<br/>get_kb_article<br/>get_kb_article_attachment"]
         Resolver["Service resolver + shared state<br/>lazy initialization and reuse"]
         Service[KnowledgeService]
         API[ServiceNow Knowledge API Client]
@@ -240,8 +243,9 @@ not current behavior.
 
 ## Configuration
 
-All supported settings and defaults are documented in [`.env.example`](.env.example). The most
-important groups are:
+All supported settings and defaults are documented in [`.env.example`](.env.example). Local
+development loads values from `.env`; process environment variables supplied by CI/CD or
+Kubernetes take precedence. The most important groups are:
 
 | Area | Settings |
 | --- | --- |

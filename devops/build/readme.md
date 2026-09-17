@@ -12,13 +12,13 @@ This directory contains the Azure DevOps build pipeline configuration for the Se
 ## Pipeline Templates (`templates/`)
 
 - `buildMcpImage.yaml`
-  - Installs `uv`, copies `.env.local` to `.env`, installs locked dependencies once, runs Ruff and pytest from that environment, then builds and pushes the `Dockerfile-Mcp` image.
+  - Installs `uv`, installs the root locked dependencies, runs Ruff and pytest, then builds the root `Dockerfile`. Main builds push only after the quality gate passes; PR builds never push.
 - `deployMcpImage.yaml`
   - Installs Helm/kubectl, connects to the target AKS cluster (`az aks get-credentials`), and runs `helm upgrade --install` using the environment's `gvalues-<env>.yaml`.
 - `registerMcpApim.yaml`
   - Registers/updates an APIM backend and an APIM API of type `mcp` (streamable transport) so the server is reachable through Bupa's API gateway.
 - `security_scans.yaml`
-  - SonarQube scan job with PR-specific and branch-specific analysis parameters. It authenticates to `ACR:TEST` to pull the private Sonar base image. Checkmarx can be enabled with the `runCheckmarx` template parameter.
+  - SonarQube quality-gate job with PR-specific or branch-specific analysis parameters. It runs pytest with coverage and authenticates to `ACR:TEST` to pull the private Sonar base image. Checkmarx can be enabled with the `runCheckmarx` template parameter.
 
 ## Common Variables
 
@@ -30,8 +30,7 @@ This directory contains the Azure DevOps build pipeline configuration for the Se
 
 ## Prerequisites
 
-- `Dockerfile-Mcp` exists in the repository root.
-- `.env.local` exists in `src/servicenowautomation_mcp/`.
+- `Dockerfile` exists in the repository root.
 - `.dockerignore.sonar` exists in the repository root and retains `.git` for SonarQube analysis.
 - Matching Helm chart exists at `devops/deploy/helm/servicenowautomation-mcp/`.
 
