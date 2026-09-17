@@ -30,8 +30,9 @@ table access or mutation capabilities.
   root certificates.
 - **Bounded responses:** limits search results, article content, timeouts, and retries.
 - **Credential-safe logging:** credentials, authorization headers, and article bodies are not logged.
-- **APIM trust boundary:** APIM validates Entra ID tokens; the MCP server authenticates APIM,
-  extracts the already-validated claims, and enforces a separate scope per tool.
+- **Optional APIM claims authorization:** when `APIM_AUTH_ENABLED=true`, the MCP server extracts
+  claims from the token already validated by APIM and enforces a separate scope per tool. This mode
+  requires every allowed backend route to provide the same validated-token guarantee.
 
 ## Quick start
 
@@ -94,8 +95,8 @@ Everything needed to build, scan, deploy, and provision infrastructure for this 
 
 | Path | What it's for |
 |---|---|
-| `devops/build/Bupa.ServiceNowAutomation-mcp.yaml` | Main CI/CD pipeline: lint, test, build, push, and SonarQube analysis. Optional deployment adds Helm and APIM stages for dev/test. |
-| `devops/build/Bupa.ServiceNowAutomation-pr-policy.yaml` | PR validation pipeline designed for an Azure Repos branch-policy gate on `develop`: build and scan only, with no deployment. |
+| `devops/build/Bupa.ServiceNowAutomation-mcp.yaml` | Main CI/CD pipeline: runs the SonarQube quality gate first, then lint, tests, application-image build and push. Optional deployment adds Helm and APIM stages for dev/test. |
+| `devops/build/Bupa.ServiceNowAutomation-pr-policy.yaml` | PR validation pipeline designed for an Azure Repos branch-policy gate on `develop`: runs the SonarQube quality gate, then validates the application-image build without pushing or deploying it. |
 | `devops/build/templates/` | Reusable pipeline steps: `buildMcpImage.yaml`, `deployMcpImage.yaml`, `registerMcpApim.yaml`, `security_scans.yaml`. See `devops/build/readme.md`. |
 | `devops/deploy/helm/servicenowautomation-mcp/` | Helm chart (Deployment, Service, ConfigMap, ServiceAccount, PDB, Istio VirtualService/AuthorizationPolicy). See `devops/deploy/readme.md`. |
 | `devops/IAC/Terraform/` | Terraform for the app's Azure resources (Key Vault secrets, App Insights, ADO environment/pipeline variables). |
@@ -129,7 +130,7 @@ To list tools through APIM with the included Python client:
 
 ```bash
 export APIM_SUBSCRIPTION_KEY='<subscription-key>'
-python scripts/mcp_client.py \
+uv run python scripts/mcp_client.py \
   --server https://api.np.bupa.com.au/ext/dev/servicenowautomation/mcp \
   list
 ```
@@ -169,8 +170,8 @@ flowchart TB
     subgraph APIM[Azure API Management]
         direction LR
         Gateway[Streamable HTTP gateway]
-        Validate[validate-azure-ad-token]
-        Forward[Forward validated bearer token]
+        Validate["validate-jwt<br/>when Authorization is present"]
+        Forward[Forward request and supplied bearer token]
 
         Gateway --> Validate
         Validate --> Forward
@@ -229,11 +230,14 @@ request. On the first call, the resolver creates the outbound authenticator,
 server state. Later calls reuse them, including the HTTP connection pool and cached OAuth token.
 When FastMCP shuts down, its lifespan hook closes the owned ServiceNow client and authenticator.
 
-APIM validates the user token's signature, issuer, audience, and expiry. The MCP server deliberately
-does not repeat those cryptographic checks: it relies on the enforced APIM-only network boundary,
-decodes the forwarded validated token, and applies FastMCP per-tool scope checks.
-`APIM_AUTH_ENABLED=false` disables claims extraction and tool scope enforcement and is intended only
-for local development.
+The included APIM policy validates the signature, issuer, audience, expiry, and required
+`Baixa-Access` claim when an `Authorization` header is present, then forwards that header. The policy
+currently allows a request with no `Authorization` header to continue. When
+`APIM_AUTH_ENABLED=true`, FastMCP additionally requires a bearer token and the scope configured for
+the requested tool. The server deliberately does not repeat cryptographic token validation: it
+decodes claims from the APIM-validated token and therefore relies on a trusted network boundary.
+`APIM_AUTH_ENABLED` defaults to `false`; the checked-in Helm environment values do not currently
+override that default.
 
 `KnowledgeService` owns request validation, configured limits, category pagination, and response
 construction. `ServiceNowKnowledgeApiClient` owns authentication headers, endpoint construction,
@@ -252,13 +256,20 @@ Kubernetes take precedence. The most important groups are:
 | ServiceNow connection | `SERVICENOW_BASE_URL`, `SERVICENOW_KNOWLEDGE_API_PATH`, `SERVICENOW_CATEGORIES_API_PATH`, `SERVICENOW_API_VERSION` |
 | Outbound authentication | `SERVICENOW_ACCESS_TOKEN`, `SERVICENOW_CLIENT_ID`, `SERVICENOW_CLIENT_SECRET`, `SERVICENOW_OAUTH_TOKEN_PATH`, `SERVICENOW_OAUTH_SCOPE` |
 | Retrieval scope | `SERVICENOW_KNOWLEDGE_BASE`, `SERVICENOW_LANGUAGE`, `SERVICENOW_SEARCH_FIELDS`, `SERVICENOW_ARTICLE_FIELDS`, `SERVICENOW_CATEGORY_FIELDS` |
-| Response bounds | `DEFAULT_SEARCH_LIMIT`, `MAX_SEARCH_LIMIT`, `CATEGORY_PAGE_SIZE`, `MAX_ARTICLE_CONTENT_CHARS` |
+| Response bounds | `DEFAULT_SEARCH_LIMIT`, `MAX_SEARCH_LIMIT`, `CATEGORY_PAGE_SIZE`, `MAX_ARTICLE_CONTENT_CHARS`, `MAX_ATTACHMENT_BYTES` |
 | Reliability | `REQUEST_TIMEOUT_SECONDS`, `TRANSIENT_RETRY_ATTEMPTS`, `RETRY_BACKOFF_SECONDS`, `LOG_LEVEL` |
 | Server | `HOST`, `PORT` |
 | APIM claims authorization | `APIM_AUTH_ENABLED`, `APIM_SCOPE_CLAIM_NAMES`, `APIM_SUBJECT_CLAIM_NAMES`; per-tool scopes are fixed in code |
+| Observability | `APPLICATIONINSIGHTS_CONNECTION_STRING`, `ENVIRONMENT` |
 
 A configured static ServiceNow access token takes precedence over OAuth client credentials. When
 client credentials are used, the server obtains and caches the access token automatically.
+
+Application Insights telemetry is configured during the FastMCP lifespan only when
+`APPLICATIONINSIGHTS_CONNECTION_STRING` is non-empty. Terraform provisions Application Insights and
+stores its connection string, but the checked-in Helm chart does not automatically inject that value
+into the pod; deployment configuration must expose it as an environment variable, for example
+through the chart's existing ConfigMap or Secret environment mechanisms.
 
 The default Knowledge API path, field names, and query parameters are implementation assumptions.
 Validate them against the API version and customizations of the target ServiceNow instance before
@@ -268,18 +279,26 @@ production deployment.
 
 There are three distinct security boundaries:
 
-1. **MCP client → APIM:** the client obtains an Entra ID access token. APIM must use
-   `validate-azure-ad-token` to verify its signature, issuer, audience, and expiry.
-2. **APIM → MCP server:** enforced network controls guarantee that only APIM can reach the backend.
-   APIM forwards the validated bearer token, and the MCP server extracts `oid`/`sub` and
-   `scp`/`scope`/`roles` without repeating signature validation.
+1. **MCP client → APIM:** the client obtains an Entra ID access token. The included APIM policy uses
+   `validate-jwt` to verify a supplied token's signature, issuer, audience, expiry, and
+   `Baixa-Access` claim. It currently permits a request that omits the `Authorization` header.
+2. **APIM → MCP server:** APIM forwards the validated bearer token, and the MCP server extracts
+   `oid`/`sub` and `scp`/`scope`/`roles` without repeating signature validation. Network controls
+   must ensure that every source allowed to reach the backend provides an equivalent validated-token
+   guarantee.
 3. **This server → ServiceNow:** choose either a ServiceNow integration identity or, only when the
    target ServiceNow instance supports it, a delegated end-user identity.
 
-APIM must forward the original validated `Authorization: Bearer ...` header because the MCP server
-uses its claims for tool authorization. The APIM-only network restriction is a mandatory security
-control for this design; exposing the backend through another route would allow unvalidated claims
-to reach the MCP server.
+When `APIM_AUTH_ENABLED=true`, APIM must forward the original validated
+`Authorization: Bearer ...` header because the MCP server uses its claims for tool authorization.
+The token must contain both the claim required by the APIM policy and the relevant per-tool scope
+listed above. Restricting the backend to trusted, token-validating paths is mandatory in this mode;
+an unvalidated route would allow forged claims to reach the MCP server.
+
+The checked-in Istio AuthorizationPolicy currently allows the internal ingress gateway plus sources
+from the release namespace and `istio-system`. Tighten that policy, or add equivalent token
+validation on every allowed path, before enabling the server's APIM claims authorization in a
+production environment.
 
 ### ServiceNow downstream identity options
 
@@ -321,10 +340,10 @@ The container runs as a non-root user and exposes the HTTP server on port `8080`
 ## Local client examples
 
 ```bash
-python scripts/mcp_client.py list
-python scripts/mcp_client.py categories
-python scripts/mcp_client.py search "remote access" --limit 5
-python scripts/mcp_client.py article ARTICLE_ID
+uv run python scripts/mcp_client.py list
+uv run python scripts/mcp_client.py categories
+uv run python scripts/mcp_client.py search "remote access" --limit 5
+uv run python scripts/mcp_client.py article ARTICLE_ID
 ```
 
 The helper uses HTTP/JSON-RPC directly and does not require the FastMCP CLI. See the
