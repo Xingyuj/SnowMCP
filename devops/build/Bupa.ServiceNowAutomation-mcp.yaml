@@ -82,7 +82,9 @@ stages:
         eq('${{ parameters.env }}', 'dev'))
       dependsOn:
         - Build
+        - SecurityScan
       variables:
+        - group: "ServiceNowAutomation_Runtime_DEV"
         - name: "CLUSTER_NAME"
           value: "nonprod4aks"
         - name: "AKS_RESOURCE_GROUP_NAME"
@@ -110,12 +112,14 @@ stages:
                       IMAGE_TAG: $(imageTag)
                       env: dev
                       tenantId: $(tenantId)
+                      runtimeSecretName: "servicenowautomation-runtime"
                       vsts_override: "--set namespace=$(appNameSpace)"
 
                   # APIM registration — one call per MCP server
                   - template: templates/registerMcpApim.yaml
                     parameters:
                       mcpServerName: "servicenowautomation"
+                      apiPath: "ext/dev/servicenowautomation"
                       backendName: "servicenowautomation-backend-dev"
                       backendUrl: "https://caasnp4.bupa.com.au/servicenowautomation-mcp-dev"
                       mcpDescription: "ServiceNowAutomation Model Context Protocol Server"
@@ -131,7 +135,9 @@ stages:
         eq('${{ parameters.env }}', 'test'))
       dependsOn:
         - Build
+        - SecurityScan
       variables:
+        - group: "ServiceNowAutomation_Runtime_TEST"
         - name: "CLUSTER_NAME"
           value: "nonprod4aks"
         - name: "AKS_RESOURCE_GROUP_NAME"
@@ -159,12 +165,14 @@ stages:
                       IMAGE_TAG: $(imageTag)
                       env: test
                       tenantId: $(tenantId)
+                      runtimeSecretName: "servicenowautomation-runtime"
                       vsts_override: "--set namespace=$(appNameSpace)"
 
                   # APIM registration — one call per MCP server
                   - template: templates/registerMcpApim.yaml
                     parameters:
                       mcpServerName: "servicenowautomation"
+                      apiPath: "ext/test/servicenowautomation"
                       backendName: "servicenowautomation-backend-test"
                       backendUrl: "https://caasnp4.bupa.com.au/servicenowautomation-mcp-test"
                       mcpDescription: "ServiceNowAutomation Model Context Protocol Server"

@@ -14,7 +14,7 @@ from .models import (
 # Attachment validation retains the existing compatibility-oriented identifier contract.
 _IDENTIFIER = re.compile(r"^[^\s/\\?#]{1,255}$")
 _ARTICLE_SYS_ID = re.compile(r"^[0-9a-fA-F]{32}$")
-_ARTICLE_NUMBER = re.compile(r"^KB[0-9]{1,20}$")
+_ARTICLE_NUMBER = re.compile(r"^KB\d{1,20}$", re.ASCII)
 
 
 class KnowledgeService:

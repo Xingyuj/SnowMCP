@@ -82,7 +82,7 @@ async def test_server_identity_and_instructions_are_stable():
         initialization = client.initialize_result
 
     assert initialization is not None
-    assert initialization.serverInfo.name == SERVER_NAME == "ServiceNow MCP"
+    assert initialization.serverInfo.name == SERVER_NAME == "ServiceNow Automation MCP"
     assert initialization.instructions == SERVER_INSTRUCTIONS
     assert "read-only access" in SERVER_INSTRUCTIONS
     assert "authoritative enterprise knowledge" in SERVER_INSTRUCTIONS

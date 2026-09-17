@@ -1,6 +1,6 @@
 <div align="center">
 
-# ServiceNow MCP Server
+# ServiceNowAutomation MCP Server
 
 ![Python 3.12+](https://img.shields.io/badge/Python-3.12%2B-3776AB?logo=python&logoColor=white)
 ![FastMCP 3.x](https://img.shields.io/badge/FastMCP-3.x-009688)
@@ -118,8 +118,7 @@ configuration looks like this:
       "type": "http",
       "url": "https://your-mcp-host.example/mcp",
       "headers": {
-        "Authorization": "Bearer ${MCP_ACCESS_TOKEN}",
-        "Ocp-Apim-Subscription-Key": "${APIM_SUBSCRIPTION_KEY}"
+        "Authorization": "Bearer ${MCP_ACCESS_TOKEN}"
       }
     }
   }
@@ -135,6 +134,7 @@ uv run python scripts/mcp_client.py \
   list
 ```
 
+)
 Exact field names and configuration file locations vary by client. In production, the client sends
 the Entra ID access token to APIM.
 

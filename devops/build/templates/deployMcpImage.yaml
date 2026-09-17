@@ -8,6 +8,8 @@ parameters:
   - name: "env"
   - name: "tenantId"
     default: ""
+  - name: "runtimeSecretName"
+    default: "servicenowautomation-runtime"
   - name: "vsts_override"
 
 steps:
@@ -62,6 +64,28 @@ steps:
 
         kubectl config get-contexts
         kubelogin convert-kubeconfig -l azurecli
+
+        required_variables=(
+          SERVICENOW_BASE_URL
+          SERVICENOW_CLIENT_ID
+          SERVICENOW_CLIENT_SECRET
+        )
+        for variable_name in "${required_variables[@]}"; do
+          if [[ -z "${!variable_name:-}" ]]; then
+            echo "Required runtime variable $variable_name is not configured" >&2
+            exit 1
+          fi
+        done
+
+        kubectl create secret generic "${{parameters.runtimeSecretName}}" \
+          --namespace "${{parameters.appNameSpace}}" \
+          --from-literal=SERVICENOW_BASE_URL="$SERVICENOW_BASE_URL" \
+          --from-literal=SERVICENOW_CLIENT_ID="$SERVICENOW_CLIENT_ID" \
+          --from-literal=SERVICENOW_CLIENT_SECRET="$SERVICENOW_CLIENT_SECRET" \
+          --dry-run=client \
+          --output=yaml \
+          | kubectl apply --filename=-
+
         release_name=${{parameters.chartName}}-${{parameters.env}}
         bootstrap_policy=${release_name}-bootstrap-ap
         release_status=$(helm status $release_name \
@@ -93,12 +117,16 @@ steps:
         --set-string pipelineMetadata.repositoryUri="$(Build.Repository.Uri)" \
         --set-string pipelineMetadata.sourceBranch="$(Build.SourceBranch)" \
         --set-string pipelineMetadata.commitId="$(Build.SourceVersion)" \
+        --set-string secretEnv.existingSecret="${{parameters.runtimeSecretName}}" \
         $env_vsts_override
 
         kubectl delete authorizationpolicy $bootstrap_policy \
           -n ${{parameters.appNameSpace}} --ignore-not-found
     env:
       env_vsts_override: ${{ parameters.vsts_override }}
+      SERVICENOW_BASE_URL: $(SERVICENOW_BASE_URL)
+      SERVICENOW_CLIENT_ID: $(SERVICENOW_CLIENT_ID)
+      SERVICENOW_CLIENT_SECRET: $(SERVICENOW_CLIENT_SECRET)
 
   - task: AzureCLI@2
     displayName: "Verify Deployment Rollout"

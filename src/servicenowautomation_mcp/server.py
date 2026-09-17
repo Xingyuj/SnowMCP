@@ -23,7 +23,7 @@ __all__ = [
     "mcp_app",
 ]
 
-SERVER_NAME = "ServiceNow MCP"
+SERVER_NAME = "ServiceNow Automation MCP"
 SERVER_INSTRUCTIONS = (
     "Provides read-only access to authoritative enterprise knowledge stored in ServiceNow. "
     "For a general natural-language knowledge question, use search_knowledge first unless a "
