@@ -164,6 +164,7 @@ async def test_fastmcp_tool_metadata_and_schemas_are_complete():
     article_id_schema = tools[2].inputSchema["properties"]["article_id"]
     assert article_id_schema["maxLength"] == 255
     assert "results[].article_id from search_knowledge" in article_id_schema["description"]
+    assert "KB followed by exactly 7 digits" in article_id_schema["description"]
     search_result_schema = tools[0].outputSchema["properties"]["results"]["items"]
     assert search_result_schema["properties"]["article_id"]["description"]
     assert "article_id" in search_result_schema["required"]

@@ -127,8 +127,9 @@ def register_knowledge_tools(
                 max_length=255,
                 description=(
                     "Specific ServiceNow article sys_id (32 hexadecimal characters) or KB article "
-                    "number, such as KB0012345. Pass results[].article_id from search_knowledge; "
-                    "do not pass a natural-language question."
+                    "number consisting of KB followed by exactly 7 digits, such as KB0012345. "
+                    "Pass results[].article_id from search_knowledge; do not pass a natural-language "
+                    "question."
                 ),
                 examples=["9b4f5c1adb1230106a3e1b1f299619d2", "KB0012345"],
             ),

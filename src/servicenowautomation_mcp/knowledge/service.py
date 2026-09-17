@@ -14,7 +14,7 @@ from .models import (
 # Attachment validation retains the existing compatibility-oriented identifier contract.
 _IDENTIFIER = re.compile(r"^[^\s/\\?#]{1,255}$")
 _ARTICLE_SYS_ID = re.compile(r"^[0-9a-fA-F]{32}$")
-_ARTICLE_NUMBER = re.compile(r"^KB\d{1,20}$", re.ASCII)
+_ARTICLE_NUMBER = re.compile(r"^KB\d{7}$", re.ASCII)
 
 
 class KnowledgeService:
@@ -101,6 +101,7 @@ def _validated_article_identifier(value: str) -> str:
     if not (_ARTICLE_SYS_ID.fullmatch(cleaned) or _ARTICLE_NUMBER.fullmatch(cleaned)):
         raise KnowledgeMcpError(
             ErrorCode.INVALID_REQUEST,
-            "Invalid article identifier. Use search_knowledge first to obtain a valid article_id.",
+            "Invalid article identifier. Use a 32-character sys_id or KB followed by exactly "
+            "7 digits. Use search_knowledge first to obtain a valid article_id.",
         )
     return cleaned

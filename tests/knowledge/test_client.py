@@ -47,7 +47,7 @@ async def test_search_maps_ranked_candidates_and_scopes_request():
                     "articles": [
                         {
                             "id": "a1",
-                            "number": "KB001",
+                            "number": "KB0000001",
                             "title": "Remote access",
                             "snippet": "Connection guidance",
                             "score": "0.9",
@@ -126,7 +126,7 @@ async def test_categories_reject_malformed_response():
 async def test_get_article_maps_content_and_status_metadata():
     raw = {
         "sys_id": "article-1",
-        "number": "KB002",
+        "number": "KB0000002",
         "short_description": "Policy",
         "article_body": "Canonical content",
         "workflow_state": "draft",

@@ -143,7 +143,7 @@ async def test_categories_are_automatically_paginated():
 @pytest.mark.asyncio
 async def test_article_and_attachment_identifier_validation():
     target, _ = service()
-    assert (await target.get_knowledge_article("KB001")).id == "KB001"
+    assert (await target.get_knowledge_article("KB0012345")).id == "KB0012345"
     assert (
         await target.get_knowledge_attachment("article-1", "attachment-1")
     ).attachment_id == "attachment-1"
@@ -152,6 +152,10 @@ async def test_article_and_attachment_identifier_validation():
             await target.get_knowledge_article(invalid)
         with pytest.raises(KnowledgeMcpError):
             await target.get_knowledge_attachment("article-1", invalid)
+
+    for invalid_article_number in ("KB123456", "KB12345678", "kb1234567", "KB123456A"):
+        with pytest.raises(KnowledgeMcpError):
+            await target.get_knowledge_article(invalid_article_number)
 
 
 @pytest.mark.asyncio
@@ -163,7 +167,8 @@ async def test_article_rejects_natural_language_with_search_guidance():
             await target.get_knowledge_article(invalid)
         assert exc.value.code == ErrorCode.INVALID_REQUEST
         assert exc.value.message == (
-            "Invalid article identifier. Use search_knowledge first to obtain a valid article_id."
+            "Invalid article identifier. Use a 32-character sys_id or KB followed by exactly "
+            "7 digits. Use search_knowledge first to obtain a valid article_id."
         )
 
     assert client.article_calls == []
