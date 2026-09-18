@@ -82,11 +82,12 @@ def server_client(config: ServiceNowKnowledgeConfig | None = None) -> Client:
 
 async def test_server_identity_and_instructions_are_stable():
     async with server_client() as client:
-        initialization = client.initialize_result
+        server_info = client.server_info
+        instructions = client.instructions
 
-    assert initialization is not None
-    assert initialization.serverInfo.name == SERVER_NAME == "ServiceNow Automation MCP"
-    assert initialization.instructions == SERVER_INSTRUCTIONS
+    assert server_info is not None
+    assert server_info.name == SERVER_NAME == "ServiceNow Automation MCP"
+    assert instructions == SERVER_INSTRUCTIONS
     assert "read-only access" in SERVER_INSTRUCTIONS
     assert "authoritative enterprise knowledge" in SERVER_INSTRUCTIONS
     assert "instead of inventing content" in SERVER_INSTRUCTIONS
@@ -144,30 +145,32 @@ async def test_fastmcp_tool_metadata_and_schemas_are_complete():
     for tool in tools:
         assert tool.description
         assert tool.annotations is not None
-        assert tool.annotations.readOnlyHint is True
-        assert tool.annotations.destructiveHint is False
-        assert tool.annotations.idempotentHint is True
-        assert tool.annotations.openWorldHint is True
+        assert tool.annotations.read_only_hint is True
+        assert tool.annotations.destructive_hint is False
+        assert tool.annotations.idempotent_hint is True
+        assert tool.annotations.open_world_hint is True
 
-        assert tool.inputSchema["additionalProperties"] is False
-        assert set(tool.inputSchema.get("required", [])) == expected_required_inputs[tool.name]
-        _assert_schema_property_descriptions(tool.inputSchema)
+        assert tool.input_schema["additionalProperties"] is False
+        assert set(tool.input_schema.get("required", [])) == expected_required_inputs[tool.name]
+        _assert_schema_property_descriptions(tool.input_schema)
 
-        assert tool.outputSchema is not None
-        assert tool.outputSchema["additionalProperties"] is False
-        assert set(tool.outputSchema["required"]) == expected_required_outputs[tool.name]
-        _assert_schema_property_descriptions(tool.outputSchema)
+        assert tool.output_schema is not None
+        assert tool.output_schema["additionalProperties"] is False
+        assert set(tool.output_schema["required"]) == expected_required_outputs[tool.name]
+        _assert_schema_property_descriptions(tool.output_schema)
 
-    search_schema = tools[0].inputSchema["properties"]
+    search_schema = tools[0].input_schema["properties"]
     assert search_schema["query"]["minLength"] == 1
     assert search_schema["limit"]["anyOf"][0]["minimum"] == 1
-    article_id_schema = tools[2].inputSchema["properties"]["article_id"]
+    article_id_schema = tools[2].input_schema["properties"]["article_id"]
     assert article_id_schema["maxLength"] == 255
     assert "results[].article_id from search_knowledge" in article_id_schema["description"]
-    search_result_schema = tools[0].outputSchema["properties"]["results"]["items"]
+    assert tools[0].output_schema is not None
+    search_result_schema = tools[0].output_schema["properties"]["results"]["items"]
     assert search_result_schema["properties"]["article_id"]["description"]
     assert "article_id" in search_result_schema["required"]
-    attachment_output = tools[3].outputSchema["properties"]
+    assert tools[3].output_schema is not None
+    attachment_output = tools[3].output_schema["properties"]
     assert attachment_output["content_base64"]["contentEncoding"] == "base64"
 
 

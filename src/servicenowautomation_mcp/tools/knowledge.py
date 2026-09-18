@@ -23,10 +23,10 @@ from ..scopes import (
 )
 
 _READ_ONLY_EXTERNAL_TOOL = ToolAnnotations(
-    readOnlyHint=True,
-    destructiveHint=False,
-    idempotentHint=True,
-    openWorldHint=True,
+    read_only_hint=True,
+    destructive_hint=False,
+    idempotent_hint=True,
+    open_world_hint=True,
 )
 _IDENTIFIER_PATTERN = r"^[^\s/\\?#]{1,255}$"
 
